@@ -1,0 +1,116 @@
+{
+  "id": "AmethystIntro",
+  "bpm": 120,
+  "fps": 60,
+  "offsetFrames": 0,
+  "durationInFrames": 360,
+  "beats": [
+    {
+      "beat": 0,
+      "frame": 0,
+      "time": 0
+    },
+    {
+      "beat": 1,
+      "frame": 30,
+      "time": 0.5
+    },
+    {
+      "beat": 2,
+      "frame": 60,
+      "time": 1
+    },
+    {
+      "beat": 3,
+      "frame": 90,
+      "time": 1.5
+    },
+    {
+      "beat": 4,
+      "frame": 120,
+      "time": 2
+    },
+    {
+      "beat": 5,
+      "frame": 150,
+      "time": 2.5
+    },
+    {
+      "beat": 6,
+      "frame": 180,
+      "time": 3
+    },
+    {
+      "beat": 7,
+      "frame": 210,
+      "time": 3.5
+    },
+    {
+      "beat": 8,
+      "frame": 240,
+      "time": 4
+    },
+    {
+      "beat": 9,
+      "frame": 270,
+      "time": 4.5
+    },
+    {
+      "beat": 10,
+      "frame": 300,
+      "time": 5
+    },
+    {
+      "beat": 11,
+      "frame": 330,
+      "time": 5.5
+    }
+  ],
+  "downbeats": [
+    {
+      "beat": 0,
+      "frame": 0,
+      "time": 0
+    },
+    {
+      "beat": 4,
+      "frame": 120,
+      "time": 2
+    },
+    {
+      "beat": 8,
+      "frame": 240,
+      "time": 4
+    }
+  ],
+  "hits": [
+    {
+      "name": "whoosh: dive",
+      "sfx": "whoosh.wav",
+      "beat": 2.75,
+      "frame": 83,
+      "time": 1.3833333333333333
+    },
+    {
+      "name": "low hit: slam",
+      "sfx": "low-hit.wav",
+      "beat": 3.5,
+      "frame": 105,
+      "time": 1.75
+    },
+    {
+      "name": "whoosh: lockup",
+      "sfx": "whoosh.wav",
+      "beat": 5.5,
+      "frame": 165,
+      "time": 2.75
+    },
+    {
+      "name": "warm hit: title",
+      "sfx": "warm-hit.wav",
+      "beat": 6.75,
+      "frame": 203,
+      "time": 3.3833333333333333
+    }
+  ]
+}
