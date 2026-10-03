@@ -35,7 +35,7 @@ sys.path.insert(0, str(ROOT))
 from dotenv import load_dotenv  # noqa: E402
 from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
 from generate_data import P as SIM  # noqa: E402
@@ -381,6 +381,15 @@ def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
 app = FastAPI(title="Amethyst live demo")
 # The Expo app polls /api/state from the phone (or Expo web in a browser).
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["*"])
+
+
+@app.middleware("http")
+async def tunnel_read_only(request, call_next):
+    """Through a Cloudflare tunnel (requests carry cf-ray), only the app's read endpoint is
+    public, so nobody else can send readings or spend the Anthropic key."""
+    if "cf-ray" in request.headers and not (request.method in ("GET", "OPTIONS") and request.url.path == "/api/state"):
+        return JSONResponse({"detail": "Only /api/state is available through the tunnel."}, status_code=403)
+    return await call_next(request)
 WOUND = Wound()
 OFFLINE = False
 SEQ = 0          # bumps on every new assessment or reset so the app knows something changed
