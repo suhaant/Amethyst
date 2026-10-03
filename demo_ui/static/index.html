@@ -5,230 +5,176 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Amethyst Live Demo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --surface: #FFFFFF; --raised: #F5F5F7; --tint: #F3EEFA; --line: #E6E6EA;
+  --bg: #FFFFFF; --soft: #F7F7F8; --line: #EAEAEE;
   --ink: #0A0A0B; --muted: #5B5B66; --faint: #9A9AA6;
-  --brand: #6B3FA0; --brand-deep: #4E2B7C; --brand-light: #8E66CC; --brand-glow: #B79BE0;
-  --normal: #1F7A5A; --normal-bg: #E8F5EF;
-  --warning: #B45309; --warning-bg: #FDF3E6;
-  --infection: #C2253D; --infection-bg: #FCEBEE;
-  --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --brand: #6B3FA0; --brand-deep: #4E2B7C;
+  --normal: #1F7A5A; --warning: #B45309; --infection: #C2253D; --fault: #5B5B66;
+  --z-normal: #D3EBDF; --z-warning: #F6E2C4; --z-infection: #F4CDD3;
+  --sans: "Inter", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--raised); color: var(--ink); font-family: var(--sans); font-size: 14px; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
 button, input { font: inherit; color: inherit; }
-.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--brand); }
-.mono { font-family: var(--mono); font-weight: 500; }
+.label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.mono { font-family: var(--mono); }
 
 .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-header { display: flex; align-items: center; gap: 14px; padding: 16px 32px; background: var(--surface); border-bottom: 1px solid var(--line); }
-.lockup { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 20px; letter-spacing: -.02em; }
-.lockup svg { width: 26px; height: 26px; }
-.spacer { flex: 1; }
-.chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500; background: var(--raised); color: var(--muted); }
-.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-.chip.on { background: var(--tint); color: var(--brand-deep); }
-.chip.on .dot { background: var(--brand); }
-#agentChip { cursor: pointer; user-select: none; }
-.iconbtn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; color: var(--muted); }
-.iconbtn:hover { color: var(--brand-deep); border-color: var(--brand-glow); }
+header { display: flex; align-items: center; gap: 20px; padding: 0 32px; height: 56px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
+.brand svg { width: 18px; height: 18px; }
+header .spacer { flex: 1; }
+.hbtn { border: 0; background: none; padding: 6px 0; cursor: pointer; font-size: 13px; color: var(--muted); }
+.hbtn:hover { color: var(--ink); }
+.hbtn b { font-weight: 500; color: var(--ink); }
 
-.split { display: grid; grid-template-columns: 400px 1fr; min-height: 0; }
+.split { display: grid; grid-template-columns: 420px 1fr; min-height: 0; }
+.left { border-right: 1px solid var(--line); padding: 28px 32px; overflow-y: auto; }
+.right { padding: 28px 40px; overflow-y: auto; min-width: 0; }
+h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
 
-/* ---------- left ---------- */
-.left { background: var(--surface); border-right: 1px solid var(--line); padding: 28px 32px; overflow-y: auto; display: flex; flex-direction: column; gap: 22px; }
-.presets { display: flex; flex-wrap: wrap; gap: 6px; }
-.preset { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: all .15s; }
-.preset:hover { border-color: var(--brand-glow); color: var(--brand-deep); }
-.preset.on { background: var(--tint); border-color: transparent; color: var(--brand-deep); }
-.fields { display: flex; flex-direction: column; gap: 18px; }
-.field { display: grid; grid-template-columns: 1fr 118px; gap: 6px 14px; align-items: center; }
-.field .name { font-weight: 600; font-size: 14px; }
-.field .hint { font-size: 12px; color: var(--faint); margin-top: 1px; }
-.inbox { display: flex; align-items: baseline; gap: 4px; border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; background: var(--surface); transition: border-color .15s, box-shadow .15s; }
-.inbox:focus-within { border-color: var(--brand); box-shadow: 0 0 0 3px var(--tint); }
-.inbox.bad { border-color: var(--infection); }
-.inbox input { border: 0; outline: 0; width: 100%; min-width: 0; font-family: var(--mono); font-size: 17px; background: transparent; -moz-appearance: textfield; }
-.inbox input::-webkit-outer-spin-button, .inbox input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.inbox span { font-size: 11.5px; color: var(--faint); white-space: nowrap; }
-.zonebar { grid-column: 1 / -1; position: relative; height: 4px; display: flex; gap: 2px; }
-.zonebar i { display: block; height: 100%; border-radius: 2px; }
-.zonebar .marker { position: absolute; top: -5px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--surface); border: 3px solid var(--ink); transition: left .3s cubic-bezier(.2,.8,.2,1); }
-.controls { display: flex; flex-direction: column; gap: 12px; }
-.seg { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--raised); border-radius: 12px; padding: 3px; }
-.seg button { border: 0; background: transparent; padding: 7px 0; font-size: 12.5px; font-weight: 500; cursor: pointer; border-radius: 9px; color: var(--muted); }
-.seg button.on { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(10,10,11,.08); }
-.send { border: 0; background: var(--brand); color: #fff; border-radius: 14px; padding: 15px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background .15s; }
-.send:hover { background: var(--brand-deep); }
-.send:disabled { background: var(--brand-light); cursor: progress; }
-.err { color: var(--infection); font-size: 12.5px; min-height: 16px; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { flex: 1; border: 0; border-right: 1px solid var(--line); background: var(--bg); padding: 7px 4px; font-size: 12.5px; cursor: pointer; color: var(--muted); white-space: nowrap; }
+.seg button:last-child { border-right: 0; }
+.seg button:hover { color: var(--ink); }
+.seg button.on { background: var(--soft); color: var(--ink); font-weight: 500; }
+.scen { flex-wrap: wrap; }
+.scen button { flex: 1 1 33%; border-bottom: 1px solid var(--line); }
 
-/* ---------- right ---------- */
-.right { padding: 28px 32px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: min-content; gap: 18px; min-width: 0; }
-.card { background: var(--surface); border-radius: 20px; padding: 22px; min-width: 0; }
-.span2 { grid-column: 1 / -1; }
+.rows { margin-top: 22px; }
+.row { display: grid; grid-template-columns: 1fr 104px; gap: 4px 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+.row:last-child { border-bottom: 1px solid var(--line); }
+.row .nm { font-weight: 500; }
+.row .base { font-size: 12px; color: var(--faint); }
+.inp { grid-row: 1 / span 2; grid-column: 2; display: flex; align-items: baseline; justify-content: flex-end; gap: 5px; border-bottom: 1px solid var(--line); align-self: center; padding: 2px 0; }
+.inp:focus-within { border-color: var(--ink); }
+.inp.bad { border-color: var(--infection); }
+.inp input { width: 64px; border: 0; outline: 0; text-align: right; font: 500 16px var(--mono); background: transparent; -moz-appearance: textfield; }
+.inp input::-webkit-outer-spin-button, .inp input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.inp span { font-size: 11.5px; color: var(--faint); width: 34px; }
+.bar { grid-column: 1; position: relative; height: 6px; display: flex; margin-top: 6px; }
+.bar i { height: 100%; } .bar i:first-child { border-radius: 3px 0 0 3px; } .bar i:last-child { border-radius: 0 3px 3px 0; }
+.bar .mk { position: absolute; top: -4px; width: 2px; height: 14px; margin-left: -1px; background: var(--ink); transition: left .25s ease; }
+.bar .bl { position: absolute; top: -2px; width: 1px; height: 10px; background: var(--muted); opacity: .5; }
+.legend { display: flex; gap: 14px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 6px; border-radius: 2px; margin-right: 6px; vertical-align: 1px; background: var(--c); }
 
-/* flow */
-.flow { display: grid; grid-template-columns: 1fr 56px 1fr 56px 1fr 56px 1fr; align-items: center; padding: 26px 24px; }
-.node { border: 1.5px solid var(--line); border-radius: 18px; padding: 16px 16px 14px; transition: all .3s ease; background: var(--surface); min-height: 128px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.node .ic { width: 38px; height: 38px; border-radius: 12px; background: var(--raised); display: grid; place-items: center; color: var(--muted); transition: all .3s; }
-.node .ic svg { width: 20px; height: 20px; }
-.node .nm { font-weight: 600; font-size: 15px; }
-.node .sb { font-size: 11.5px; color: var(--faint); margin-top: -6px; }
-.node .st { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: auto; min-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.node.active { border-color: var(--brand); background: var(--tint); }
-.node.active .ic { background: var(--brand); color: #fff; }
-.node.active .st { color: var(--brand-deep); }
-.node.done .ic { background: var(--tint); color: var(--brand); }
-.node.warn { border-color: var(--warning); }
-.node.warn .ic { background: var(--warning-bg); color: var(--warning); }
-.link { position: relative; height: 40px; }
-.link .ln { position: absolute; left: 4px; right: 4px; top: 50%; height: 2px; background: var(--line); border-radius: 1px; }
-.link.two .ln { top: 32%; } .link.two .ln.b { top: 68%; }
-.link .ln::after { content: ""; position: absolute; right: -2px; top: -4px; border: 5px solid transparent; border-left: 7px solid var(--line); border-right: 0; }
-.link.two .ln.b::after { right: auto; left: -2px; border-left: 0; border-right: 7px solid var(--line); }
-.link .ln.live { background: var(--brand-glow); } .link .ln.live::after { border-left-color: var(--brand-glow); }
-.link.two .ln.b.live::after { border-right-color: var(--brand-glow); }
-.link .dot { position: absolute; top: calc(50% - 4px); width: 8px; height: 8px; border-radius: 50%; background: var(--brand); opacity: 0; }
-.link.two .dot.a { top: calc(32% - 4px); } .link.two .dot.b { top: calc(68% - 4px); }
-.dot.run { animation: travel .55s ease-in-out forwards; }
-.dot.run.rev { animation-name: travelrev; }
-@keyframes travel { 0% { left: 0; opacity: 1; } 99% { opacity: 1; } 100% { left: calc(100% - 8px); opacity: 0; } }
-@keyframes travelrev { 0% { left: calc(100% - 8px); opacity: 1; } 99% { opacity: 1; } 100% { left: 0; opacity: 0; } }
+.time { margin-top: 22px; display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.send { margin-top: 16px; width: 100%; border: 0; border-radius: 6px; background: var(--ink); color: #fff; padding: 12px; font-weight: 500; cursor: pointer; }
+.send:hover { background: #26262B; }
+.send:disabled { background: var(--faint); cursor: progress; }
+.err { color: var(--infection); font-size: 12.5px; min-height: 18px; margin-top: 8px; }
 
-/* risk */
-.riskhead { display: flex; justify-content: space-between; align-items: flex-start; }
-.big { font-size: 68px; font-weight: 600; letter-spacing: -.05em; line-height: .95; transition: color .3s; }
-.big small { font-size: 18px; color: var(--faint); font-weight: 500; letter-spacing: 0; margin-left: 4px; }
-.status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-weight: 600; font-size: 13px; }
-.status svg { width: 14px; height: 14px; }
-.s-normal { color: var(--normal); background: var(--normal-bg); }
-.s-warning { color: var(--warning); background: var(--warning-bg); }
-.s-infection { color: var(--infection); background: var(--infection-bg); }
-.s-idle { color: var(--muted); background: var(--raised); }
-.sub { color: var(--muted); font-size: 13px; margin-top: 8px; }
-#riskChart { width: 100%; height: 120px; display: block; margin-top: 14px; }
-.therapy { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: flex-start; }
-.therapy svg { flex: none; width: 18px; height: 18px; color: var(--brand); margin-top: 1px; }
-.therapy div { font-size: 13px; line-height: 1.45; }
+.pipe { display: grid; grid-template-columns: 1fr 24px 1fr 24px 1fr 24px 1fr; align-items: start; }
+.step { padding-top: 10px; border-top: 2px solid var(--line); transition: border-color .25s; min-width: 0; }
+.step .nm { font-weight: 600; }
+.step .sb { font-size: 12px; color: var(--faint); }
+.step .st { font: 12px var(--mono); color: var(--muted); margin-top: 6px; min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.step.active { border-top-color: var(--brand); }
+.step.active .st { color: var(--brand-deep); }
+.step.done { border-top-color: var(--ink); }
+.step.warn { border-top-color: var(--warning); }
+.arrow { text-align: center; color: var(--faint); padding-top: 14px; font-size: 13px; }
 
-/* agent */
-.agenthead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.quote { font-size: 16px; line-height: 1.5; margin: 12px 0 0; min-height: 48px; letter-spacing: -.005em; }
-.quote.muted { color: var(--faint); }
-.tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
-.tag { font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; background: var(--raised); color: var(--muted); }
-.tag.warn { background: var(--warning-bg); color: var(--warning); }
-.drivers { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
-.drv { display: grid; grid-template-columns: 104px 1fr; align-items: center; gap: 10px; font-size: 12.5px; margin: 7px 0; }
-.drv .track { position: relative; height: 8px; }
-.drv .track .mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line); }
-.drv .track b { position: absolute; top: 0; height: 100%; border-radius: 4px; transition: all .45s cubic-bezier(.2,.8,.2,1); }
-.legend { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); margin-left: 114px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; margin-top: 36px; border-top: 1px solid var(--line); }
+.grid2 > div { padding: 22px 0 0; min-width: 0; }
+.grid2 > div:first-child { padding-right: 32px; border-right: 1px solid var(--line); }
+.grid2 > div:last-child { padding-left: 32px; }
+.risk { display: flex; align-items: baseline; gap: 14px; margin-top: 6px; }
+.risk .n { font-size: 56px; font-weight: 600; letter-spacing: -.04em; line-height: 1; }
+.risk .of { color: var(--faint); font-size: 15px; margin-left: -8px; }
+.lvl { font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+.lvl::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.l-normal { color: var(--normal); } .l-warning { color: var(--warning); } .l-infection { color: var(--infection); } .l-fault, .l-idle { color: var(--fault); }
+.tier { color: var(--muted); font-size: 13px; margin-top: 4px; }
+#chart { width: 100%; height: 110px; display: block; margin-top: 18px; }
+.therapy { margin-top: 16px; font-size: 13px; color: var(--muted); }
+.therapy b { color: var(--ink); font-weight: 500; }
+.say { font-size: 16px; line-height: 1.5; margin: 6px 0 0; }
+.say.idle { color: var(--faint); }
+.say a { color: var(--brand); text-decoration: none; font-size: 13px; }
+.meta { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+.meta .w { color: var(--warning); }
+.drv { margin-top: 20px; }
+.drv .r { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; font-size: 12.5px; color: var(--muted); padding: 3px 0; }
+.drv .t { position: relative; height: 6px; background: var(--soft); border-radius: 3px; }
+.drv .t b { position: absolute; top: 0; height: 100%; border-radius: 3px; transition: all .4s ease; }
+.drv .t::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--line); }
+.drv .ax { display: flex; justify-content: space-between; margin-left: 122px; font-size: 11px; color: var(--faint); margin-top: 4px; }
 
-/* log */
-.log { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; max-height: 210px; overflow-y: auto; }
-.log li { display: grid; grid-template-columns: 52px 12px 1fr; gap: 10px; align-items: center; padding: 6px 0; animation: rise .3s ease both; }
-.log .t { font: 500 11px var(--mono); color: var(--faint); text-align: right; }
-.log .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-glow); align-self: center; }
-.log .pip.hardware { background: var(--ink); } .log .pip.ml { background: var(--brand); } .log .pip.mobile { background: var(--normal); }
-.log .pip.warn, .log .pip.error { background: var(--warning); }
-.log .tx { font-size: 13px; font-weight: 500; }
-.log .tx span { color: var(--faint); font-weight: 400; font-family: var(--mono); font-size: 11.5px; margin-left: 8px; }
-.log .sep { grid-column: 1 / -1; display: block; height: 1px; background: var(--line); margin: 6px 0; padding: 0; }
-@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.dots { display: inline-flex; gap: 3px; margin-left: 6px; }
-.dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--brand); animation: blink 1s infinite; }
-.dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
-@keyframes blink { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+.log { margin-top: 36px; border-top: 1px solid var(--line); padding-top: 18px; }
+.log ol { list-style: none; margin: 10px 0 0; padding: 0; font: 12px/1.7 var(--mono); color: var(--muted); max-height: 190px; overflow-y: auto; }
+.log li { display: grid; grid-template-columns: 48px 70px 1fr; gap: 8px; animation: in .25s ease both; }
+.log li .t { color: var(--faint); text-align: right; }
+.log li .s { color: var(--faint); }
+.log li .x { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log li .x span { color: var(--faint); margin-left: 8px; }
+.log li.w .x { color: var(--warning); }
+.log li.gap { display: block; height: 1px; background: var(--line); margin: 6px 0; }
+@keyframes in { from { opacity: 0; } to { opacity: 1; } }
+.thinking::after { content: "…"; animation: dots 1.2s steps(4) infinite; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; }
+@keyframes dots { from { width: 0; } to { width: 1.2em; } }
 
-@media (max-width: 1150px) {
-  .split { grid-template-columns: 1fr; } .left { border-right: 0; }
-  .right { grid-template-columns: 1fr; }
-}
+@media (max-width: 1100px) { .split { grid-template-columns: 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } }
 </style>
 </head>
 <body>
 <div class="app">
   <header>
-    <div class="lockup">Amethyst
+    <div class="brand">Amethyst
       <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M29 4 L7 33 L25 40 Z" fill="#4E2B7C"/><path d="M29 4 L25 40 L52 35 Z" fill="#B79BE0"/><path d="M29 4 L52 35 L58 28 Z" fill="#6B3FA0"/><path d="M7 33 L25 40 L23 57 L14 54 L9 47 Z" fill="#6B3FA0"/><path d="M25 40 L52 35 L50 50 L43 56 L35 54 L29 59 L23 57 Z" fill="#8E66CC"/><path d="M52 35 L58 28 L58 41 L55 48 L50 50 Z" fill="#4E2B7C"/></svg>
     </div>
-    <span class="eyebrow" style="margin-left:6px">Live demo</span>
+    <span class="label">Live demo</span>
     <div class="spacer"></div>
-    <span class="chip" id="agentChip"><span class="dot"></span><span id="agentLabel">Agent</span></span>
-    <span class="chip mono" id="clock">Hour 24</span>
-    <button class="iconbtn" id="resetBtn" title="New patient">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9"/><path d="M2.5 2.5v3h3"/></svg>
-    </button>
+    <button class="hbtn" id="agentBtn">Agent: <b id="agentName">offline</b></button>
+    <span class="hbtn mono" id="clock" style="cursor:default">hour 24</span>
+    <button class="hbtn" id="resetBtn">New patient</button>
   </header>
 
   <div class="split">
     <section class="left">
-      <div class="eyebrow">Patch input</div>
-      <div class="presets" id="presets"></div>
-      <form id="form" autocomplete="off" class="controls">
-        <div class="fields" id="fields"></div>
-        <div style="height:4px"></div>
-        <div class="seg" id="advance"></div>
-        <button class="send" type="submit" id="sendBtn">Send reading</button>
-        <div class="err" id="err"></div>
-      </form>
+      <h2>Patch reading</h2>
+      <div class="seg scen" id="scen"></div>
+      <div class="rows" id="rows"></div>
+      <div class="legend">
+        <span style="--c:var(--z-normal)">Normal</span><span style="--c:var(--z-warning)">Warning</span><span style="--c:var(--z-infection)">Infection</span>
+      </div>
+      <div class="time"><span class="label">Hold for</span><div class="seg" id="hold"></div></div>
+      <button class="send" id="send">Send</button>
+      <div class="err" id="err"></div>
     </section>
 
     <section class="right">
-      <div class="card span2 flow" id="flow">
-        <div class="node" id="n-hardware">
-          <div class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="14" height="14" rx="4"/><circle cx="7.5" cy="10" r="1.2" fill="currentColor"/><circle cx="12.5" cy="10" r="1.2" fill="currentColor"/></svg></div>
-          <div class="nm">Patch</div><div class="sb">sensors</div><div class="st" id="s-hardware"></div>
+      <div class="pipe">
+        <div class="step" id="p-hardware"><div class="nm">Patch</div><div class="sb">sensors</div><div class="st" id="s-hardware"></div></div>
+        <div class="arrow">→</div>
+        <div class="step" id="p-agent"><div class="nm">Agent</div><div class="sb" id="agentSub">offline</div><div class="st" id="s-agent"></div></div>
+        <div class="arrow">⇄</div>
+        <div class="step" id="p-ml"><div class="nm">Model</div><div class="sb">XGBoost</div><div class="st" id="s-ml"></div></div>
+        <div class="arrow">→</div>
+        <div class="step" id="p-mobile"><div class="nm">App</div><div class="sb">Expo Go</div><div class="st" id="s-mobile"></div></div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="label">Infection risk</div>
+          <div class="risk"><span class="n" id="riskN">–</span><span class="of">/100</span><span class="lvl l-idle" id="lvl">Baseline</span></div>
+          <div class="tier" id="tier">First 24 h set this patient's baseline</div>
+          <svg id="chart" viewBox="0 0 400 110" preserveAspectRatio="none"></svg>
+          <div class="therapy" id="therapy">Therapy: <b>none</b></div>
         </div>
-        <div class="link" id="l1"><span class="ln"></span><span class="dot"></span></div>
-        <div class="node" id="n-agent">
-          <div class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M10 2.5l1.8 4.7 4.7 1.8-4.7 1.8L10 15.5l-1.8-4.7L3.5 9l4.7-1.8z"/><path d="M15.5 13.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></div>
-          <div class="nm">Agent</div><div class="sb" id="agentSub">Claude Opus</div><div class="st" id="s-agent"></div>
-        </div>
-        <div class="link two" id="l2"><span class="ln"></span><span class="ln b"></span><span class="dot a"></span><span class="dot b"></span></div>
-        <div class="node" id="n-ml">
-          <div class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 3v4M10 7l-4 4M10 7l4 4M6 11v3M14 11v3"/><circle cx="10" cy="3" r="1.3" fill="currentColor"/><circle cx="6" cy="15.5" r="1.3"/><circle cx="14" cy="15.5" r="1.3"/></svg></div>
-          <div class="nm">ML model</div><div class="sb">XGBoost</div><div class="st" id="s-ml"></div>
-        </div>
-        <div class="link" id="l3"><span class="ln"></span><span class="dot"></span></div>
-        <div class="node" id="n-mobile">
-          <div class="ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5.5" y="2.5" width="9" height="15" rx="2.5"/><path d="M8.5 15h3" stroke-linecap="round"/></svg></div>
-          <div class="nm">App</div><div class="sb">Expo Go</div><div class="st" id="s-mobile"></div>
+        <div>
+          <div class="label" id="agentLabel">Assessment</div>
+          <p class="say idle" id="say">Send a reading.</p>
+          <div class="meta" id="meta"></div>
+          <div class="drv"><div id="drv"></div><div class="ax"><span>normal</span><span>infection</span></div></div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="riskhead">
-          <div><div class="eyebrow">Infection risk</div><div class="big" id="risk" style="margin-top:10px">--<small>/100</small></div></div>
-          <span id="status"><span class="status s-idle">Baseline</span></span>
-        </div>
-        <div class="sub" id="tier">Learning baseline</div>
-        <svg id="riskChart" viewBox="0 0 400 120" preserveAspectRatio="none"></svg>
-        <div class="therapy">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="10" r="3"/><path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.3 4.3l1.8 1.8M13.9 13.9l1.8 1.8M4.3 15.7l1.8-1.8M13.9 6.1l1.8-1.8"/></svg>
-          <div id="therapy" class="sub" style="margin:0">No therapy yet</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="agenthead"><div class="eyebrow">Agent</div><span class="chip" id="srcChip" style="font-size:11.5px;padding:4px 10px">idle</span></div>
-        <p class="quote muted" id="quote">Send a reading.</p>
-        <div class="tags" id="tags"></div>
-        <div class="drivers">
-          <div id="drivers"></div>
-          <div class="legend"><span>← normal</span><span>infection →</span></div>
-        </div>
-      </div>
-
-      <div class="card span2">
-        <div class="eyebrow">Live log</div>
-        <ul class="log" id="log"></ul>
-      </div>
+      <div class="log"><div class="label">Log</div><ol id="log"></ol></div>
     </section>
   </div>
 </div>
@@ -236,105 +182,85 @@ header { display: flex; align-items: center; gap: 14px; padding: 16px 32px; back
 <script>
 const $ = (s) => document.querySelector(s);
 const ORDER = ["ph", "temp_c", "impedance_kohm", "blood_glucose_mgdl", "wound_glucose_mM"];
-const ZONES = {
-  ph: { lo: 5.5, hi: 9, z: [[5.5, 6.9, "normal"], [6.9, 7.5, "warning"], [7.5, 9, "infection"]] },
-  temp_c: { lo: 30, hi: 40, z: [[30, 34.5, "normal"], [34.5, 35.5, "warning"], [35.5, 40, "infection"]] },
-  impedance_kohm: { lo: 0, hi: 30, z: [[0, 7, "infection"], [7, 8.5, "warning"], [8.5, 30, "normal"]] },
-  blood_glucose_mgdl: { lo: 50, hi: 300, z: [[50, 70, "warning"], [70, 140, "normal"], [140, 300, "warning"]] },
-  wound_glucose_mM: { lo: 0, hi: 8, z: [[0, 2.7, "infection"], [2.7, 3.6, "warning"], [3.6, 8, "normal"]] },
-};
-const ZB = { normal: "#9CCFB9", warning: "#EBC08F", infection: "#E9A0AC" };
-const ICON = {
-  normal: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg>',
-  warning: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 2.5l6 10.5H2z"/><path d="M8 7v2.5M8 11.3v.2" stroke-linecap="round"/></svg>',
-  infection: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11v.2"/></svg>',
-};
-const LABEL = { normal: "Normal", warning: "Warning", infection: "Infection" };
-const ADVANCE = [0.5, 2, 6, 12, 24];
-let CFG, advance = 6, useAgent = true, busy = false, riskSeries = [];
+const ZC = { normal: "var(--z-normal)", warning: "var(--z-warning)", infection: "var(--z-infection)" };
+const WORD = { normal: "Normal", warning: "Warning", infection: "Infection", fault: "Check patch", idle: "Baseline" };
+const HOLD = [0.5, 2, 4, 6, 12, 24];
+const DP = { ph: 2, temp_c: 1, impedance_kohm: 1, blood_glucose_mgdl: 0, wound_glucose_mM: 2 };
+let CFG, P, hold = 6, useAgent = false, busy = false, series = [];
 
-const levelOf = (r) => (r >= 55 ? "infection" : r >= 30 ? "warning" : "normal");
-const pill = (lvl, txt) => `<span class="status s-${lvl}">${ICON[lvl] || ""}${txt || LABEL[lvl]}</span>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function init() {
   CFG = await (await fetch("/api/config")).json();
   useAgent = CFG.llm_available;
-  renderAgentChip();
-  $("#presets").innerHTML = Object.keys(CFG.presets).map((k) => `<button type="button" class="preset" data-p="${k}">${k}</button>`).join("");
-  $("#presets").onclick = (e) => {
-    const p = e.target.dataset.p; if (!p) return;
-    fill(CFG.presets[p]); [...$("#presets").children].forEach((b) => b.classList.toggle("on", b.dataset.p === p));
-  };
-  $("#fields").innerHTML = ORDER.map((k) => {
-    const r = CFG.ranges[k], z = ZONES[k];
-    const bar = z.z.map(([a, b, c]) => `<i style="flex:${b - a};background:${ZB[c]}"></i>`).join("");
-    return `<div class="field">
-      <div><div class="name">${r.label}</div><div class="hint">${esc(r.hint)}</div></div>
-      <label class="inbox" id="box-${k}" title="${r.min}–${r.max} ${r.unit}"><input id="f-${k}" type="number" step="any" inputmode="decimal"><span>${r.unit}</span></label>
-      <div class="zonebar">${bar}<span class="marker" id="m-${k}"></span></div>
-    </div>`;
-  }).join("");
-  ORDER.forEach((k) => $(`#f-${k}`).addEventListener("input", () => { mark(k); [...$("#presets").children].forEach((b) => b.classList.remove("on")); }));
-  fill(CFG.baseline);
-  $("#advance").innerHTML = ADVANCE.map((h) => `<button type="button" data-h="${h}" class="${h === advance ? "on" : ""}">+${h < 1 ? "30m" : h + "h"}</button>`).join("");
-  $("#advance").onclick = (e) => { const h = e.target.dataset.h; if (!h) return; advance = +h; [...$("#advance").children].forEach((b) => b.classList.toggle("on", +b.dataset.h === advance)); };
-  $("#form").onsubmit = (e) => { e.preventDefault(); send(); };
+  setPatient(CFG);
+  $("#hold").innerHTML = HOLD.map((h) => `<button data-h="${h}">${h < 1 ? "30 min" : h + " h"}</button>`).join("");
+  $("#hold").onclick = (e) => { if (e.target.dataset.h) setHold(+e.target.dataset.h); };
+  setHold(hold);
+  $("#send").onclick = send;
   $("#resetBtn").onclick = reset;
-  $("#agentChip").onclick = () => { if (!CFG.llm_available) return; useAgent = !useAgent; renderAgentChip(); };
-  drawRisk(); renderDrivers([]);
+  $("#agentBtn").onclick = () => { if (CFG.llm_available) { useAgent = !useAgent; agentLabel(); } };
+  agentLabel();
+}
+function setHold(h) { hold = h; [...$("#hold").children].forEach((b) => b.classList.toggle("on", +b.dataset.h === h)); }
+function agentLabel() {
+  const live = useAgent && CFG.llm_available;
+  $("#agentName").textContent = live ? "Claude Opus" : "offline";
+  $("#agentSub").textContent = live ? "Claude Opus" : "offline rules";
+  $("#agentBtn").title = CFG.llm_available ? "Switch agent" : "Add ANTHROPIC_API_KEY to .env";
 }
 
-function renderAgentChip() {
-  const live = useAgent && CFG.llm_available;
-  $("#agentChip").classList.toggle("on", live);
-  $("#agentLabel").textContent = live ? "Claude Opus" : "Offline";
-  $("#agentChip").title = CFG.llm_available ? "Click to switch agent mode" : "Add ANTHROPIC_API_KEY to .env for the live Opus agent";
-  $("#agentSub").textContent = live ? "Claude Opus" : "offline rules";
+// zones and presets come from the server: same thresholds the model and agent use
+function setPatient(c) {
+  P = c;
+  $("#scen").innerHTML = Object.keys(c.presets).map((k) => `<button data-p="${k}">${k}</button>`).join("");
+  $("#scen").onclick = (e) => { const k = e.target.dataset.p; if (!k) return; fill(c.presets[k].values); setHold(c.presets[k].hours); scenOn(k); };
+  $("#rows").innerHTML = ORDER.map((k) => {
+    const r = CFG.ranges[k], z = c.zones[k], span = z.hi - z.lo;
+    const bands = z.bands.map(([a, b, lvl]) => `<i style="flex:${b - a};background:${ZC[lvl]}"></i>`).join("");
+    const bl = ((c.baseline[k] - z.lo) / span) * 100;
+    return `<div class="row">
+      <div><div class="nm">${r.label}</div><div class="base">baseline ${c.baseline[k].toFixed(DP[k])}</div></div>
+      <label class="inp" id="i-${k}"><input id="f-${k}" type="number" step="any" inputmode="decimal"><span>${r.unit}</span></label>
+      <div class="bar">${bands}<span class="bl" style="left:${bl}%"></span><span class="mk" id="m-${k}"></span></div>
+    </div>`;
+  }).join("");
+  ORDER.forEach((k) => $(`#f-${k}`).addEventListener("input", () => { mark(k); scenOn(null); }));
+  fill(c.presets.Healthy.values); setHold(6); scenOn(null);
 }
-function fill(v) { ORDER.forEach((k) => { $(`#f-${k}`).value = v[k]; mark(k); }); }
+function scenOn(k) { [...$("#scen").children].forEach((b) => b.classList.toggle("on", b.dataset.p === k)); }
+function fill(v) { ORDER.forEach((k) => { $(`#f-${k}`).value = +(+v[k]).toFixed(DP[k]); mark(k); }); }
 function mark(k) {
-  const v = parseFloat($(`#f-${k}`).value), z = ZONES[k], r = CFG.ranges[k];
+  const v = parseFloat($(`#f-${k}`).value), z = P.zones[k], r = CFG.ranges[k];
   const pct = Math.max(0, Math.min(100, ((v - z.lo) / (z.hi - z.lo)) * 100));
   $(`#m-${k}`).style.left = `${isNaN(pct) ? 0 : pct}%`;
-  $(`#box-${k}`).classList.toggle("bad", isNaN(v) || v < r.min || v > r.max);
+  $(`#i-${k}`).classList.toggle("bad", isNaN(v) || v < r.min || v > r.max);
 }
 
 async function reset() {
   if (busy) return;
-  await fetch("/api/reset", { method: "POST" });
-  riskSeries = []; drawRisk(); renderDrivers([]); $("#log").innerHTML = "";
-  $("#clock").textContent = "Hour 24"; $("#risk").innerHTML = "--<small>/100</small>"; $("#risk").style.color = "";
-  $("#status").innerHTML = '<span class="status s-idle">Baseline</span>'; $("#tier").textContent = "Learning baseline";
-  $("#therapy").textContent = "No therapy yet"; $("#quote").textContent = "Send a reading."; $("#quote").classList.add("muted");
-  $("#tags").innerHTML = ""; $("#srcChip").textContent = "idle";
-  ["hardware", "agent", "ml", "mobile"].forEach((n) => { setNode(n, ""); $(`#s-${n}`).textContent = ""; });
-  document.querySelectorAll(".ln").forEach((l) => l.classList.remove("live"));
-  fill(CFG.baseline); [...$("#presets").children].forEach((b) => b.classList.remove("on"));
+  const c = await (await fetch("/api/reset", { method: "POST" })).json();
+  setPatient(c); series = []; chart(); $("#log").innerHTML = ""; $("#clock").textContent = "hour 24";
+  setLevel("idle"); $("#riskN").textContent = "–"; $("#tier").textContent = "First 24 h set this patient's baseline";
+  $("#therapy").innerHTML = "Therapy: <b>none</b>"; $("#say").textContent = "Send a reading."; $("#say").className = "say idle";
+  $("#meta").innerHTML = ""; $("#agentLabel").textContent = "Assessment"; drivers([]);
+  ["hardware", "agent", "ml", "mobile"].forEach((n) => { step(n, ""); $(`#s-${n}`).textContent = ""; });
 }
 
-// ---------- flow animation ----------
-const NODE_OF = { hardware: "hardware", agent: "agent", ml: "ml", therapy: "ml", mobile: "mobile", error: "hardware" };
-const LINK_INTO = { agent: ["l1", ".dot"], ml: ["l2", ".dot.a"], therapy: ["l2", ".dot.b", true], mobile: ["l3", ".dot"] };
-function setNode(n, cls) { const g = $(`#n-${n}`); g.classList.remove("active", "done", "warn"); if (cls) g.classList.add(cls); }
-function travel(stage) {
-  const spec = LINK_INTO[stage]; if (!spec) return;
-  const [id, sel, rev] = spec, link = $(`#${id}`), dot = link.querySelector(sel);
-  link.querySelectorAll(".ln").forEach((l, i) => { if (!link.classList.contains("two") || (rev ? i === 1 : i === 0)) l.classList.add("live"); });
-  dot.classList.remove("run", "rev"); void dot.offsetWidth; dot.classList.add("run"); if (rev) dot.classList.add("rev");
-}
-
+const NODE = { hardware: "hardware", agent: "agent", ml: "ml", therapy: "ml", mobile: "mobile", error: "hardware" };
+function step(n, cls) { const el = $(`#p-${n}`); el.classList.remove("active", "done", "warn"); if (cls) el.classList.add(cls); }
 let queue = [], draining = false, thinking = null;
-function logLine(ev) {
+
+function log(ev) {
   if (thinking) { thinking.remove(); thinking = null; }
   const li = document.createElement("li");
-  const pip = ev.status === "warn" || ev.status === "error" ? ev.status : ev.stage;
-  li.innerHTML = `<span class="t">${ev.t.toFixed(1)}s</span><span class="pip ${pip}"></span><span class="tx">${esc(ev.title)}${ev.detail ? `<span>${esc(ev.detail)}</span>` : ""}</span>`;
+  if (ev.status === "warn" || ev.status === "error") li.className = "w";
+  li.innerHTML = `<span class="t">${ev.t.toFixed(1)}s</span><span class="s">${ev.stage}</span><span class="x">${esc(ev.title)}${ev.detail ? `<span>${esc(ev.detail)}</span>` : ""}</span>`;
   $("#log").appendChild(li);
   if (ev.title === "Opus reasoning") {
     thinking = document.createElement("li");
-    thinking.innerHTML = `<span class="t"></span><span class="pip agent"></span><span class="tx" style="color:var(--brand-deep)">thinking<span class="dots"><i></i><i></i><i></i></span></span>`;
+    thinking.innerHTML = `<span class="t"></span><span class="s">agent</span><span class="x thinking" style="color:var(--brand-deep)">thinking</span>`;
     $("#log").appendChild(thinking);
   }
   $("#log").scrollTop = $("#log").scrollHeight;
@@ -342,110 +268,110 @@ function logLine(ev) {
 async function drain() {
   if (draining) return; draining = true;
   while (queue.length) {
-    const ev = queue.shift(), node = NODE_OF[ev.stage];
-    if (ev.status === "active" || ev.stage === "mobile") travel(ev.stage);
-    setNode(node, ev.status === "active" ? "active" : ev.status === "warn" || ev.status === "error" ? "warn" : "done");
-    $(`#s-${node}`).textContent = stat(ev);
-    logLine(ev); handle(ev);
-    await sleep(ev.stage === "mobile" ? 150 : 600);
+    const ev = queue.shift(), n = NODE[ev.stage];
+    step(n, ev.status === "active" ? "active" : ev.status === "warn" || ev.status === "error" ? "warn" : "done");
+    $(`#s-${n}`).textContent = status(ev);
+    log(ev); handle(ev);
+    await sleep(ev.stage === "mobile" ? 120 : 550);
   }
   draining = false;
 }
-function stat(ev) {
+function status(ev) {
   if (ev.data?.prediction) return `risk ${Math.round(ev.data.prediction.risk_score)}`;
   if (ev.stage === "mobile") return ev.detail.toLowerCase();
   if (ev.stage === "hardware") return ev.status === "done" ? ev.title : "receiving";
   if (ev.stage === "therapy") return ev.status === "done" ? "plan ready" : "planning";
-  if (ev.status === "warn") return "offline";
+  if (ev.status === "warn") return "offline fallback";
   return ev.status === "active" ? "working" : "done";
 }
 
+function setLevel(lvl) { const el = $("#lvl"); el.className = `lvl l-${lvl}`; el.textContent = WORD[lvl]; }
 function handle(ev) {
   const d = ev.data || {};
   if (d.prediction) {
-    const p = d.prediction, lvl = levelOf(p.risk_score);
-    $("#risk").innerHTML = `${Math.round(p.risk_score)}<small>/100</small>`;
-    $("#risk").style.color = lvl === "normal" ? "var(--ink)" : `var(--${lvl})`;
-    $("#status").innerHTML = pill(lvl);
-    $("#tier").textContent = `${p.tier.split(" ").slice(1).join(" ")} tier · P(infected) ${p.p_infected.toFixed(2)}`;
+    const p = d.prediction;
+    $("#riskN").textContent = Math.round(p.risk_score);
+    setLevel(d.level);
+    $("#tier").textContent = `${p.tier.split(" ").slice(1).join(" ")} tier · p = ${p.p_infected.toFixed(2)}`;
   }
-  if (d.drivers) renderDrivers(d.drivers);
-  if (d.notes) renderNotes(d.notes, d.source);
-  if (d.plan) $("#therapy").innerHTML = `<span style="color:var(--ink);font-weight:500">${esc(therapyText(d.plan, ev.detail))}</span>`;
-  if (d.state) { riskSeries = d.state.risk_series; drawRisk(); $("#clock").textContent = `Hour ${d.state.hours.toFixed(1).replace(/\.0$/, "")}`; }
+  if (d.drivers) drivers(d.drivers);
+  if (d.notes) notes(d.notes, d.source);
+  if (d.plan) $("#therapy").innerHTML = `Therapy: <b>${esc(therapy(d.plan))}</b>`;
+  if (d.state) {
+    series = d.state.risk_series; chart();
+    setLevel(d.state.level);
+    $("#clock").textContent = `hour ${d.state.hours.toFixed(1).replace(/\.0$/, "")}`;
+  }
 }
-function therapyText(p, fallback) {
-  if (p.skipped_reason) return "Paused · patch off skin";
-  const parts = [];
-  if (p.us_40khz_min) parts.push(`40 kHz ultrasound ${p.us_40khz_min}m`);
-  if (p.led_405nm_min) parts.push(`405 nm LED ${p.led_405nm_min}m`);
-  if (p.us_1p5mhz_min) parts.push(`1.5 MHz healing ${p.us_1p5mhz_min}m`);
-  return parts.join(" → ") || fallback || "None";
+function therapy(p) {
+  if (p.skipped_reason) return "paused, patch off skin";
+  const a = [];
+  if (p.us_40khz_min) a.push(`40 kHz ultrasound ${p.us_40khz_min} min`);
+  if (p.led_405nm_min) a.push(`405 nm LED ${p.led_405nm_min} min`);
+  if (p.us_1p5mhz_min) a.push(`1.5 MHz healing ultrasound ${p.us_1p5mhz_min} min`);
+  return a.join(", then ") || "none";
 }
-function renderNotes(n, source) {
-  $("#srcChip").textContent = source === "opus" ? "Claude Opus" : "offline";
-  $("#quote").classList.remove("muted");
+function notes(n, source) {
+  $("#agentLabel").textContent = source === "opus" ? "Assessment · Claude Opus" : "Assessment · offline rules";
   const full = String(n.summary || ""), first = (full.match(/^.*?[.!?](\s|$)/) || [full])[0].trim();
+  $("#say").className = "say";
   if (first.length < full.length) {
-    $("#quote").innerHTML = `${esc(first)} <a href="#" id="more" style="color:var(--brand);font-size:13px;text-decoration:none;font-weight:500">more</a>`;
-    $("#more").onclick = (e) => { e.preventDefault(); $("#quote").textContent = full; };
-  } else $("#quote").textContent = full;
-  const html = [`<span class="tag">${esc(n.confidence)} confidence</span>`];
-  if (n.recommend_clinician_review) html.push(`<span class="tag warn">Clinician review</span>`);
-  (n.data_quality_flags || []).forEach((f) => html.push(`<span class="tag warn">${esc(f.split(":")[0].split(";")[0])}</span>`));
-  $("#tags").innerHTML = html.join("");
+    $("#say").innerHTML = `${esc(first)} <a href="#" id="more">more</a>`;
+    $("#more").onclick = (e) => { e.preventDefault(); $("#say").textContent = full; };
+  } else $("#say").textContent = full;
+  const m = [`Confidence ${esc(n.confidence)}`];
+  if (n.recommend_clinician_review) m.push(`<span class="w">Clinician review</span>`);
+  const fl = n.data_quality_flags || [];
+  if (fl.length) m.push(`<span class="w" title="${esc(fl.join("\n\n"))}" style="cursor:help;border-bottom:1px dotted">${fl.length} data issue${fl.length > 1 ? "s" : ""}</span>`);
+  $("#meta").innerHTML = m.join(" · ");
 }
-function renderDrivers(ds) {
+function drivers(ds) {
   const names = ["pH", "Temperature", "Moisture", "Wound glucose", "Blood glucose"];
-  const map = Object.fromEntries(ds.map((d) => [d.sensor, d.contribution]));
-  const max = Math.max(1, ...names.map((n) => Math.abs(map[n] || 0)));
-  $("#drivers").innerHTML = names.map((n) => {
-    const v = map[n] || 0, w = (Math.abs(v) / max) * 50, up = v > 0;
-    const style = up ? `left:50%;width:${w}%;background:var(--brand)` : `left:${50 - w}%;width:${w}%;background:#D5D5DC`;
-    return `<div class="drv"><span>${n}</span><div class="track"><span class="mid"></span><b style="${style}"></b></div></div>`;
+  const v = Object.fromEntries(ds.map((d) => [d.sensor, d.contribution]));
+  const max = Math.max(1, ...names.map((n) => Math.abs(v[n] || 0)));
+  $("#drv").innerHTML = names.map((n) => {
+    const x = v[n] || 0, w = (Math.abs(x) / max) * 50;
+    const s = x > 0 ? `left:50%;width:${w}%;background:var(--ink)` : `left:${50 - w}%;width:${w}%;background:#C9C9D1`;
+    return `<div class="r"><span>${n}</span><div class="t"><b style="${s}"></b></div></div>`;
   }).join("");
 }
-function drawRisk() {
-  const W = 400, H = 120, pl = 2, pr = 2, pt = 6, pb = 6, svg = $("#riskChart");
-  const pts = riskSeries, x0 = 24, x1 = Math.max(48, ...pts.map((p) => p.hour));
-  const X = (h) => pl + ((h - x0) / (x1 - x0)) * (W - pl - pr), Y = (r) => pt + (1 - r / 100) * (H - pt - pb);
-  let g = "";
-  [[30, "#EBC08F"], [55, "#E9A0AC"]].forEach(([v, c]) => g += `<line x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="${c}" stroke-dasharray="3 5" vector-effect="non-scaling-stroke"/>`);
-  g += `<line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#E6E6EA" vector-effect="non-scaling-stroke"/>`;
-  if (pts.length) {
-    const line = pts.map((p, i) => `${i ? "L" : "M"}${X(p.hour).toFixed(1)},${Y(p.risk_score).toFixed(1)}`).join(" ");
-    g += `<path d="${line} L${X(pts[pts.length - 1].hour)},${Y(0)} L${X(pts[0].hour)},${Y(0)} Z" fill="#F3EEFA"/>`;
-    g += `<path d="${line}" fill="none" stroke="#6B3FA0" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+function chart() {
+  const W = 400, H = 110, svg = $("#chart"), x0 = 24, x1 = Math.max(48, ...series.map((p) => p.hour));
+  const X = (h) => ((h - x0) / (x1 - x0)) * W, Y = (r) => 4 + (1 - r / 100) * (H - 8);
+  let g = `<rect x="0" y="${Y(100)}" width="${W}" height="${Y(55) - Y(100)}" fill="#FBF1F2"/>`
+        + `<rect x="0" y="${Y(55)}" width="${W}" height="${Y(30) - Y(55)}" fill="#FDF7EE"/>`
+        + `<line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#EAEAEE" vector-effect="non-scaling-stroke"/>`;
+  if (series.length) {
+    const d = series.map((p, i) => `${i ? "L" : "M"}${X(p.hour).toFixed(1)},${Y(p.risk_score).toFixed(1)}`).join(" ");
+    g += `<path d="${d}" fill="none" stroke="#0A0A0B" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
   }
   svg.innerHTML = g;
 }
 
 async function send() {
   if (busy) return;
-  const body = { advance_hours: advance, use_agent: useAgent };
+  const body = { advance_hours: hold, use_agent: useAgent };
   for (const k of ORDER) {
     const v = parseFloat($(`#f-${k}`).value), r = CFG.ranges[k];
-    if (isNaN(v) || v < r.min || v > r.max) { $("#err").textContent = `${r.label}: ${r.min}–${r.max} ${r.unit}`; return; }
+    if (isNaN(v) || v < r.min || v > r.max) { $("#err").textContent = `${r.label} must be ${r.min}–${r.max} ${r.unit}`; return; }
     body[k] = v;
   }
-  $("#err").textContent = ""; busy = true; $("#sendBtn").disabled = true;
-  $("#sendBtn").innerHTML = 'Running<span class="dots"><i style="background:#fff"></i><i style="background:#fff"></i><i style="background:#fff"></i></span>';
-  ["hardware", "agent", "ml", "mobile"].forEach((n) => setNode(n, ""));
-  document.querySelectorAll(".ln").forEach((l) => l.classList.remove("live"));
-  if ($("#log").children.length) { const s = document.createElement("li"); s.className = "sep"; $("#log").appendChild(s); }
+  $("#err").textContent = ""; busy = true; $("#send").disabled = true; $("#send").textContent = "Running…";
+  ["hardware", "agent", "ml", "mobile"].forEach((n) => step(n, ""));
+  if ($("#log").children.length) { const g = document.createElement("li"); g.className = "gap"; $("#log").appendChild(g); }
   try {
     const res = await fetch("/api/reading", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = "";
+    const rd = res.body.getReader(), dec = new TextDecoder(); let buf = "";
     for (;;) {
-      const { value, done } = await reader.read(); if (done) break;
+      const { value, done } = await rd.read(); if (done) break;
       buf += dec.decode(value, { stream: true });
       let i; while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); if (line.trim()) { queue.push(JSON.parse(line)); drain(); } }
     }
     while (draining || queue.length) await sleep(100);
   } catch (e) { $("#err").textContent = "Server error: " + e.message; }
-  busy = false; $("#sendBtn").disabled = false; $("#sendBtn").textContent = "Send reading";
+  busy = false; $("#send").disabled = false; $("#send").textContent = "Send";
 }
-init();
+init(); chart(); drivers([]);
 </script>
 </body>
 </html>

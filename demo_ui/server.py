@@ -37,6 +37,7 @@ from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
+from generate_data import P as SIM  # noqa: E402
 from predict import WoundRiskModel  # noqa: E402
 from risk_to_dose import LIFTED_KOHM  # noqa: E402
 from train_model import add_features  # noqa: E402
@@ -51,27 +52,90 @@ STEP_H = 0.5
 BASELINE = {"ph": 6.7, "temp_c": 33.5, "impedance_kohm": 10.0,
             "blood_glucose_mgdl": 100.0, "wound_glucose_mM": 4.2}
 
-# Allowed input ranges and the guidance shown next to each box.
+# Allowed input ranges (anything outside is rejected).
 RANGES = {
-    "ph": {"label": "pH", "unit": "pH", "min": 4.5, "max": 9.5, "step": 0.05,
-           "hint": "healthy 6.3–6.9 · infected 7.5+"},
-    "temp_c": {"label": "Temperature", "unit": "°C", "min": 25, "max": 45, "step": 0.1,
-               "hint": "baseline 33.5 · infected +1–2"},
-    "impedance_kohm": {"label": "Moisture", "unit": "kΩ", "min": 1, "max": 800, "step": 0.5,
-                       "hint": "lower = wetter · 150+ = patch off"},
-    "blood_glucose_mgdl": {"label": "Blood glucose", "unit": "mg/dL", "min": 40, "max": 400, "step": 1,
-                           "hint": "normal 70–140"},
-    "wound_glucose_mM": {"label": "Wound glucose", "unit": "mM", "min": 0.2, "max": 15, "step": 0.1,
-                         "hint": "baseline 4.2 · drops with bacteria"},
+    "ph": {"label": "pH", "unit": "pH", "min": 4.5, "max": 9.5},
+    "temp_c": {"label": "Temperature", "unit": "°C", "min": 25, "max": 45},
+    "impedance_kohm": {"label": "Moisture", "unit": "kΩ", "min": 1, "max": 800},
+    "blood_glucose_mgdl": {"label": "Blood glucose", "unit": "mg/dL", "min": 40, "max": 400},
+    "wound_glucose_mM": {"label": "Wound glucose", "unit": "mM", "min": 0.2, "max": 15},
 }
 
-PRESETS = {
-    "Healthy": {"ph": 6.6, "temp_c": 33.4, "impedance_kohm": 11.5, "blood_glucose_mgdl": 102, "wound_glucose_mM": 4.3},
-    "Early infection": {"ph": 7.15, "temp_c": 34.3, "impedance_kohm": 8.2, "blood_glucose_mgdl": 108, "wound_glucose_mM": 3.5},
-    "Infection": {"ph": 7.6, "temp_c": 35.2, "impedance_kohm": 6.4, "blood_glucose_mgdl": 112, "wound_glucose_mM": 2.5},
-    "Patch lifted": {"ph": 7.9, "temp_c": 28.5, "impedance_kohm": 450, "blood_glucose_mgdl": 104, "wound_glucose_mM": 4.2},
-    "Sensor fault": {"ph": 6.7, "temp_c": 43.5, "impedance_kohm": 10.5, "blood_glucose_mgdl": 101, "wound_glucose_mM": 4.2},
+# ---- one source of truth for colours, presets and the offline agent ----
+# How far each sensor moves in a typical infection, taken from the simulator the
+# model was trained on (generate_data.P). Moisture and wound glucose are fractions.
+EFFECT = {
+    "ph": SIM["ph_infection_rise"][0],                    # +0.65 pH
+    "temp_c": SIM["temp_infection_rise"][0],              # +1.6 °C
+    "impedance_kohm": -SIM["z_infection_drop"][0],        # -35 %
+    "wound_glucose_mM": -SIM["wound_glucose_drop"][0],    # -40 %
+    "blood_glucose_mgdl": SIM["blood_glucose_rise"][0],   # +8 mg/dL
 }
+RELATIVE = {"impedance_kohm", "wound_glucose_mM"}
+WARN_K, INFECT_K = 0.25, 0.70        # share of a typical infection's change
+BG_WARN_MGDL = 20                    # blood glucose is weak alone; flag only big rises
+# Physically implausible readings (the agent is told the same in its prompt).
+LIMITS = {"temp_c": (26.0, 41.0), "ph": (5.0, 9.2)}
+TIER_LEVEL = {"monitor": "normal", "watch": "warning", "treat": "infection", "intensive": "infection"}
+
+
+def signal_level(k: str, v: float, base: float) -> str:
+    """normal / warning / infection for one reading against the patient's baseline."""
+    if k == "blood_glucose_mgdl":
+        return "warning" if v - base >= BG_WARN_MGDL else "normal"
+    change = (v - base) / base if k in RELATIVE else v - base
+    frac = change / EFFECT[k]
+    return "infection" if frac >= INFECT_K else "warning" if frac >= WARN_K else "normal"
+
+
+def sensor_faults(latest: dict) -> list[str]:
+    out = []
+    if latest["impedance_kohm"] > LIFTED_KOHM:
+        out.append(f"Patch off skin: impedance {latest['impedance_kohm']:.0f} kΩ; treatment held.")
+    lo, hi = LIMITS["temp_c"]
+    if not lo <= latest["temp_c"] <= hi:
+        out.append(f"Temp sensor fault: {latest['temp_c']:.1f} °C is outside skin range.")
+    lo, hi = LIMITS["ph"]
+    if not lo <= latest["ph"] <= hi:
+        out.append(f"pH sensor fault: {latest['ph']:.2f} is outside the wound range.")
+    return out
+
+
+def zones(base: dict) -> dict:
+    """Colour bands per sensor in absolute units, for this patient's baseline."""
+    z = {}
+    for k in ("ph", "temp_c"):
+        b, e = base[k], EFFECT[k]
+        lo, hi = b - 0.9 * e, b + 1.6 * e
+        t1, t2 = b + WARN_K * e, b + INFECT_K * e
+        z[k] = {"lo": lo, "hi": hi, "bands": [[lo, t1, "normal"], [t1, t2, "warning"], [t2, hi, "infection"]]}
+    for k in ("impedance_kohm", "wound_glucose_mM"):
+        b, e = base[k], EFFECT[k]
+        lo, hi = b * 0.35, b * 1.5
+        t1, t2 = b * (1 + WARN_K * e), b * (1 + INFECT_K * e)
+        z[k] = {"lo": lo, "hi": hi, "bands": [[lo, t2, "infection"], [t2, t1, "warning"], [t1, hi, "normal"]]}
+    b = base["blood_glucose_mgdl"]
+    z["blood_glucose_mgdl"] = {"lo": 50, "hi": 250, "bands": [[50, b + BG_WARN_MGDL, "normal"], [b + BG_WARN_MGDL, 250, "warning"]]}
+    return z
+
+
+def presets(base: dict) -> dict:
+    """Scenarios built from the same effect sizes. Durations were checked against the
+    model: Healthy stays in monitor, Early infection lands in watch (risk ~35-50),
+    Infection in treat/intensive."""
+    def shift(k: float) -> dict:
+        v = {c: base[c] * (1 + k * EFFECT[c]) if c in RELATIVE else base[c] + k * EFFECT[c] for c in SENSOR_COLUMNS}
+        return {c: round(x, 2) for c, x in v.items()}
+    healthy = shift(0)
+    return {
+        "Healthy": {"values": healthy, "hours": 6, "expect": "normal"},
+        "Early infection": {"values": shift(0.45), "hours": 4, "expect": "warning"},
+        "Infection": {"values": shift(1.0), "hours": 6, "expect": "infection"},
+        "Patch lifted": {"values": {**healthy, "impedance_kohm": 450.0, "temp_c": round(base["temp_c"] - 5, 1)},
+                         "hours": 0.5, "expect": "fault"},
+        "Sensor fault": {"values": {**healthy, "temp_c": 43.5}, "hours": 2, "expect": "fault"},
+    }
+
 
 SENSOR_NAMES = {"ph": "pH", "temp_c": "Temperature", "log_z": "Moisture",
                 "impedance_kohm": "Moisture", "blood_glucose_mgdl": "Blood glucose",
@@ -111,6 +175,10 @@ class Wound:
         df = pd.DataFrame({"wound_id": WOUND_ID, "hour": hrs, **rows})
         df["timestamp"] = self.start + pd.to_timedelta(df["hour"], unit="h")
         return df.round({"ph": 3, "temp_c": 2, "impedance_kohm": 2, "blood_glucose_mgdl": 1, "wound_glucose_mM": 2})
+
+    def baseline(self) -> dict:
+        day1 = self.history[self.history["hour"] < 24]
+        return {c: round(float(day1[c].median()), 2) for c in SENSOR_COLUMNS}
 
     def add(self, target: dict, hours: float) -> pd.DataFrame:
         last = self.history.iloc[-1]
@@ -170,38 +238,27 @@ def sensor_drivers(model: WoundRiskModel, history: pd.DataFrame) -> list[dict]:
 
 
 def offline_notes(summary: dict, pred: dict, plan: dict) -> dict:
-    """Rule-based stand-in for the Opus agent's notes (used when no API key is set)."""
+    """Rule-based stand-in for the Opus agent's notes (used when no API key is set).
+    Uses the same thresholds as the input colours."""
     s = summary["sensors"]
-    d = {k: s[k]["change_vs_baseline"] for k in s}
-    base_z = s["impedance_kohm"]["day1_baseline_median"]
-    base_wg = s["wound_glucose_mM"]["day1_baseline_median"]
-    z_pct = d["impedance_kohm"] / base_z * 100 if base_z else 0
-    wg_pct = d["wound_glucose_mM"] / base_wg * 100 if base_wg else 0
-    signs = []
-    if d["ph"] >= 0.3:
-        signs.append(f"pH {d['ph']:+.2f}")
-    if d["temp_c"] >= 0.8:
-        signs.append(f"temp {d['temp_c']:+.1f} °C")
-    if z_pct <= -12:
-        signs.append(f"moisture {z_pct:.0f}%")
-    if wg_pct <= -15:
-        signs.append(f"wound glucose {wg_pct:.0f}%")
-    flags, conflicts = [], []
+    base = {k: s[k]["day1_baseline_median"] for k in s}
+    recent = {k: s[k]["median_last_6h"] for k in s}
     latest = {k: s[k]["latest"] for k in s}
-    if latest["impedance_kohm"] > LIFTED_KOHM:
-        flags.append(f"Patch off skin: impedance {latest['impedance_kohm']:.0f} kΩ; treatment held.")
-    if latest["temp_c"] > 41 or latest["temp_c"] < 26:
-        flags.append(f"Temp sensor fault: {latest['temp_c']:.1f} °C is outside skin range.")
-    if latest["ph"] < 5 or latest["ph"] > 9.2:
-        flags.append(f"pH sensor fault: {latest['ph']:.2f} is outside the wound range.")
-    risk = pred["risk_score"]
-    if risk >= 55 and d["ph"] < 0.2:
+    signs = []
+    for k, name in [("ph", "pH"), ("temp_c", "temp"), ("impedance_kohm", "moisture"), ("wound_glucose_mM", "wound glucose")]:
+        if signal_level(k, recent[k], base[k]) != "normal":
+            d = recent[k] - base[k]
+            signs.append(f"{name} {d / base[k] * 100:+.0f}%" if k in RELATIVE else f"{name} {d:+.2f}" if k == "ph" else f"{name} {d:+.1f} °C")
+    flags = sensor_faults(latest)
+    conflicts = []
+    risk, tier = pred["risk_score"], pred["tier"].split(" ", 1)[1]
+    level = TIER_LEVEL[tier]
+    if level == "infection" and signal_level("ph", recent["ph"], base["ph"]) == "normal":
         conflicts.append("pH is not rising; some infections keep the wound acidic, so this does not rule it out.")
-    if risk < 30 and len(signs) >= 2:
-        conflicts.append("Several signals have moved but the model has not crossed the watch threshold yet.")
-    if d["blood_glucose_mgdl"] >= 20 and len(signs) == 0:
+    if level == "normal" and len(signs) >= 2:
+        conflicts.append("Several signals have moved but not for long enough to cross the watch threshold.")
+    if signal_level("blood_glucose_mgdl", recent["blood_glucose_mgdl"], base["blood_glucose_mgdl"]) != "normal" and not signs:
         conflicts.append("Blood glucose is up but no wound signals moved; likely a meal, not infection.")
-    tier = pred["tier"].split(" ", 1)[1]
     verdict = {"monitor": "Healing normally.", "watch": "Early warning signs.",
                "treat": "Infection likely. Starting therapy.", "intensive": "Strong infection signal. Intensive therapy."}[tier]
     if flags:
@@ -209,8 +266,8 @@ def offline_notes(summary: dict, pred: dict, plan: dict) -> dict:
     summary_txt = f"{verdict} {', '.join(signs)} vs baseline." if signs else f"{verdict} Signals at baseline."
     trend = (f"Risk {pred['risk_score_6h_ago'] or 0:.0f} six hours ago → {risk:.0f} now."
              if pred.get("risk_score_6h_ago") is not None else f"Risk {risk:.0f} now.")
-    review = risk >= 55 or bool(flags) or bool(conflicts and risk >= 30)
-    confidence = "low" if flags else ("high" if len(signs) >= 3 or (risk < 20 and not signs) else "medium")
+    review = level == "infection" or bool(flags) or bool(conflicts and level != "normal")
+    confidence = "low" if flags else ("high" if len(signs) >= 3 or (level == "normal" and not signs) else "medium")
     return {"summary": summary_txt, "trend": trend,
             "reasoning": ("Combined change across sensors drives the call; no single sensor is reliable alone."
                           if signs else "No sensor has moved enough from baseline to suggest infection."),
@@ -272,7 +329,8 @@ def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
         drivers = sensor_drivers(model._model, hist)
         emit("ml", "done", f"Risk {pred['risk_score']:.0f} · {pred['tier'].split(' ', 1)[1]}",
              "Pushing risk up: " + (", ".join(d["sensor"] for d in drivers if d["contribution"] > 0.05 and d["sensor"] != "Time of day")[:80] or "none"),
-             {"prediction": pred, "drivers": drivers})
+             {"prediction": pred, "drivers": drivers,
+              "level": TIER_LEVEL[pred["tier"].split(" ", 1)[1]]})
 
         if notes is None:
             notes = offline_notes(summary, pred, plan)
@@ -296,7 +354,10 @@ def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
         series = model._model.predict(hist)
         risk_series = series[["hour", "risk_score"]].round(1).to_dict("records")
         latest = hist.iloc[-1]
+        faults = sensor_faults({c: float(latest[c]) for c in SENSOR_COLUMNS})
+        level = "fault" if faults else TIER_LEVEL[pred["tier"].split(" ", 1)[1]]
         state = {
+            "level": level, "faults": faults, "baseline": wound.baseline(),
             "wound_id": WOUND_ID,
             "hours": float(latest["hour"]),
             "latest_reading": {c: float(latest[c]) for c in SENSOR_COLUMNS},
@@ -306,9 +367,8 @@ def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
             "history": hist[["hour", *SENSOR_COLUMNS]].iloc[::2].round(3).to_dict("records"),
         }
         wound.latest_assessment = state
-        level = "infection" if pred["risk_score"] >= 55 else ("warning" if pred["risk_score"] >= 30 else "normal")
         emit("mobile", "done", "Sent to app",
-             {"normal": "Normal", "warning": "Warning", "infection": "Infection alert"}[level],
+             {"normal": "Normal", "warning": "Warning", "infection": "Infection alert", "fault": "Check patch"}[level],
              {"state": state, "level": level})
         return state
 
@@ -327,7 +387,13 @@ def index():
 @app.get("/api/config")
 def config():
     llm = (not OFFLINE) and bool(os.environ.get("ANTHROPIC_API_KEY"))
-    return {"ranges": RANGES, "presets": PRESETS, "baseline": BASELINE, "llm_available": llm}
+    return {"ranges": RANGES, "llm_available": llm, **patient_config()}
+
+
+def patient_config() -> dict:
+    base = WOUND.baseline()
+    return {"baseline": base, "zones": zones(base), "presets": presets(base),
+            "hours": float(WOUND.history["hour"].iloc[-1])}
 
 
 @app.get("/api/state")
@@ -340,7 +406,7 @@ def state():
 def reset():
     global WOUND
     WOUND = Wound(seed=int(time.time()) % 10_000)
-    return {"ok": True, "hours": float(WOUND.history["hour"].iloc[-1])}
+    return patient_config()
 
 
 @app.post("/api/reading")
