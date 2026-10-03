@@ -10,8 +10,10 @@ Risk score
                  only comes down 10 points below it) so the device
                  doesn't flip on/off every reading
 
-Treatment sessions every 8 h (3/day). Doses scale continuously with risk
-inside safety caps. ALL VALUES ARE PROTOTYPE SETTINGS FROM LITERATURE,
+Treatment sessions every 8 h (3/day). Antibacterial therapy (40 kHz ultrasound
++ 405 nm LED) only starts in the treat tier (risk >= 55); the watch tier means
+closer monitoring plus healing ultrasound, not treatment. Doses scale
+continuously with risk inside safety caps. ALL VALUES ARE PROTOTYPE SETTINGS FROM LITERATURE,
 NOT A VALIDATED MEDICAL PROTOCOL.
 
 Usage:
@@ -66,7 +68,9 @@ def tiers_with_hysteresis(risk, down_gap=10):
 def session_plan(risk, tier):
     """Dose for ONE 8-hour session given current risk (0-100) and tier."""
     x = np.clip((risk - 30) / 60, 0, 1)                     # 0 at risk 30, 1 at risk 90
-    led_j = LED_DAILY_CAP_J / SESSIONS_PER_DAY * x if tier >= 1 else 0.0
+    # LED only once the model says treat: below that, doses are sub-therapeutic anyway
+    # (e.g. 0.06 J/cm2 at risk 30 vs. tens of J/cm2 needed to kill bacteria).
+    led_j = LED_DAILY_CAP_J / SESSIONS_PER_DAY * x if tier >= 2 else 0.0
     led_min = led_j / (LED_IRRADIANCE_MW / 1000) / 60      # E = P*t
     if tier >= 2:                                           # break biofilm first
         lf_min = max(4.0, US_LF["max_min"] * np.clip((risk - 55) / 35, 0, 1))
@@ -74,9 +78,7 @@ def session_plan(risk, tier):
         lf_int = lo + (hi - lo) * np.clip((risk - 55) / 35, 0, 1)
     else:
         lf_min, lf_int = 0.0, 0.0
-    # Healing ultrasound whenever no LED is given: monitor tier, and the bottom of the
-    # watch tier (risk back under 30 while hysteresis holds the tier), which would
-    # otherwise get no treatment at all.
+    # Healing ultrasound whenever no LED is given (monitor and watch tiers).
     heal_min = US_HEAL["min_per_day"] / SESSIONS_PER_DAY if led_min == 0 else 0.0
     return {
         "us_40khz_min": round(lf_min, 1),
