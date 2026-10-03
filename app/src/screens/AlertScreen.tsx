@@ -32,7 +32,8 @@ export function AlertScreen({ go }: { go: (r: Route) => void }) {
   const phFrom = r.phSeries[0];
   const phTo = r.phSeries[r.phSeries.length - 1];
   const sign = r.tempDelta >= 0 ? '+' : '';
-  const canTreat = live.level !== 'fault';
+  // Therapy only when the model's plan includes antibacterial treatment (treat tier and up).
+  const canTreat = live.hasReading ? live.plan.lightMinutes > 0 || live.plan.ultrasoundMinutes > 0 : true;
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 20, flexGrow: 1 }}>
@@ -102,7 +103,13 @@ export function AlertScreen({ go }: { go: (r: Route) => void }) {
 
       <View style={{ flex: 1 }} />
 
-      <Text style={type.caption}>This is an early warning, not a diagnosis. If risk stays high for 24 hours, book a visit with your care team.</Text>
+      <Text style={type.caption}>
+        {canTreat
+          ? 'This is an early warning, not a diagnosis. If risk stays high for 24 hours, book a visit with your care team.'
+          : live.level === 'fault'
+            ? 'Amethyst pauses all therapy until the patch readings look normal again.'
+            : 'No treatment needed yet. Amethyst checks again every 30 minutes and starts therapy automatically if risk keeps rising.'}
+      </Text>
 
       <View style={{ gap: 12 }}>
         {canTreat ? <PrimaryButton label="Start therapy now" onPress={() => go('therapy')} /> : <PrimaryButton label="Back to home" onPress={() => go('home')} />}

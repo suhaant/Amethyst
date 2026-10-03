@@ -44,7 +44,10 @@ export function TherapyScreen({ go }: { go: (r: Route) => void }) {
         <Eyebrow>{`Session 1 of ${plan.sessionsPerDay} today`}</Eyebrow>
       </View>
 
-      <Text style={type.title}>{plan.skipped ? 'Therapy paused' : mainMinutes === 0 ? 'No therapy needed' : done ? 'Therapy complete' : 'Therapy in progress'}</Text>
+      <Text style={type.title}>
+        {plan.skipped ? 'Therapy paused' : mainMinutes === 0 ? 'No therapy needed' : !light ? (done ? 'Healing session complete' : 'Healing support') : done ? 'Therapy complete' : 'Therapy in progress'}
+      </Text>
+      {!light && !plan.skipped && mainMinutes > 0 && <Text style={type.body}>No infection treatment needed. Gentle ultrasound helps the wound heal.</Text>}
       {plan.skipped && <Text style={type.body}>The patch is off the skin, so Amethyst won't run ultrasound or light. Press it back down.</Text>}
 
       <Card tint="brand" style={{ padding: 24, alignItems: 'center', gap: 8 }}>
