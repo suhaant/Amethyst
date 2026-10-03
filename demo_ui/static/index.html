@@ -68,16 +68,42 @@ h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
 .send:disabled { background: var(--faint); cursor: progress; }
 .err { color: var(--infection); font-size: 12.5px; min-height: 18px; margin-top: 8px; }
 
-.pipe { display: grid; grid-template-columns: 1fr 24px 1fr 24px 1fr 24px 1fr; align-items: start; }
-.step { padding-top: 10px; border-top: 2px solid var(--line); transition: border-color .25s; min-width: 0; }
-.step .nm { font-weight: 600; }
-.step .sb { font-size: 12px; color: var(--faint); }
-.step .st { font: 12px var(--mono); color: var(--muted); margin-top: 6px; min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.step.active { border-top-color: var(--brand); }
-.step.active .st { color: var(--brand-deep); }
-.step.done { border-top-color: var(--ink); }
-.step.warn { border-top-color: var(--warning); }
-.arrow { text-align: center; color: var(--faint); padding-top: 14px; font-size: 13px; }
+.pipe { display: grid; grid-template-columns: 1fr 56px 1fr 56px 1fr 56px 1fr; align-items: center; }
+.node { border: 1px solid var(--line); border-radius: 12px; padding: 16px 14px 14px; min-width: 0; background: var(--bg); position: relative; transition: border-color .3s, box-shadow .3s, background .3s; }
+.node .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--soft); color: var(--faint); transition: background .3s, color .3s; }
+.node .ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.node .nm { font-weight: 600; margin-top: 12px; }
+.node .sb { font-size: 12px; color: var(--faint); }
+.node .st { font: 12px var(--mono); color: var(--faint); margin-top: 8px; min-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node .badge { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; opacity: 0; transform: scale(.6); transition: all .25s; }
+.node .badge svg { width: 11px; height: 11px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.node.active { border-color: var(--brand); box-shadow: 0 0 0 4px #EFE8F8; }
+.node.active .ic { background: var(--brand); color: #fff; animation: pulse 1.4s ease-in-out infinite; }
+.node.active .st { color: var(--brand-deep); }
+.node.done .ic { background: var(--ink); color: #fff; }
+.node.done .st { color: var(--muted); }
+.node.done .badge { opacity: 1; transform: none; background: var(--normal); }
+.node.warn { border-color: var(--warning); }
+.node.warn .ic { background: var(--warning); color: #fff; }
+.node.warn .badge { opacity: 1; transform: none; background: var(--warning); }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(107,63,160,.45); } 50% { box-shadow: 0 0 0 7px rgba(107,63,160,0); } }
+
+.link { position: relative; height: 2px; background: var(--line); margin: 0 6px; }
+.link.two::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--line); }
+.link .pk { position: absolute; top: -3px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); opacity: 0; }
+.link.two .pk.b { top: 3px; }
+.link.lit { background: var(--ink); }
+.link .pk.go { animation: go .5s ease-in-out; }
+.link .pk.back { animation: back .5s ease-in-out; }
+@keyframes go { 0% { left: 0; opacity: 0; } 15%, 85% { opacity: 1; } 100% { left: calc(100% - 8px); opacity: 0; } }
+@keyframes back { 0% { left: calc(100% - 8px); opacity: 0; } 15%, 85% { opacity: 1; } 100% { left: 0; opacity: 0; } }
+
+.now { margin-top: 22px; display: flex; align-items: baseline; gap: 12px; min-height: 26px; }
+.now .who { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--brand); width: 56px; flex: none; }
+.now .what { font-size: 17px; font-weight: 500; letter-spacing: -.01em; }
+.now .what span { color: var(--faint); font-weight: 400; margin-left: 8px; font-size: 14px; }
+.now.idle .what { color: var(--faint); font-weight: 400; }
+.now.warn .who, .now.warn .what { color: var(--warning); }
 
 .sig { margin-top: 36px; border-top: 1px solid var(--line); padding-top: 18px; }
 .drv { margin-top: 14px; }
@@ -131,14 +157,15 @@ h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
 
     <section class="right">
       <div class="pipe">
-        <div class="step" id="p-hardware"><div class="nm">Patch</div><div class="sb">sensors</div><div class="st" id="s-hardware"></div></div>
-        <div class="arrow">→</div>
-        <div class="step" id="p-agent"><div class="nm">Agent</div><div class="sb" id="agentSub">offline</div><div class="st" id="s-agent"></div></div>
-        <div class="arrow">⇄</div>
-        <div class="step" id="p-ml"><div class="nm">Model</div><div class="sb">XGBoost</div><div class="st" id="s-ml"></div></div>
-        <div class="arrow">→</div>
-        <div class="step" id="p-mobile"><div class="nm">App</div><div class="sb">Expo Go</div><div class="st" id="s-mobile"></div></div>
+        <div class="node" id="p-hardware"><span class="badge"><svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg></span><div class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="10" rx="5"/><circle cx="9" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="15" cy="12" r="1"/></svg></div><div class="nm">Patch</div><div class="sb">5 sensors</div><div class="st" id="s-hardware">idle</div></div>
+        <div class="link" id="l-1"><i class="pk"></i></div>
+        <div class="node" id="p-agent"><span class="badge"><svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg></span><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/></svg></div><div class="nm">Agent</div><div class="sb" id="agentSub">offline</div><div class="st" id="s-agent">idle</div></div>
+        <div class="link two" id="l-2"><i class="pk"></i><i class="pk b"></i></div>
+        <div class="node" id="p-ml"><span class="badge"><svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg></span><div class="ic"><svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><path d="M7 7l3 4M7 17l3-4M14 12h3"/></svg></div><div class="nm">Model</div><div class="sb">XGBoost</div><div class="st" id="s-ml">idle</div></div>
+        <div class="link" id="l-3"><i class="pk"></i></div>
+        <div class="node" id="p-mobile"><span class="badge"><svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-4.9"/></svg></span><div class="ic"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg></div><div class="nm">App</div><div class="sb">Expo Go</div><div class="st" id="s-mobile">idle</div></div>
       </div>
+      <div class="now idle" id="now"><span class="who" id="nowWho">ready</span><span class="what" id="nowWhat">Send a reading to start</span></div>
 
       <div class="sig">
         <div class="label">What the model is weighing</div>
@@ -212,11 +239,34 @@ async function reset() {
   if (busy) return;
   const c = await (await fetch("/api/reset", { method: "POST" })).json();
   setPatient(c); $("#log").innerHTML = ""; $("#clock").textContent = "hour 24"; drivers([]);
-  ["hardware", "agent", "ml", "mobile"].forEach((n) => { step(n, ""); $(`#s-${n}`).textContent = ""; });
+  resetPipe(); $("#now").className = "now idle"; $("#nowWho").textContent = "ready"; $("#nowWhat").textContent = "Send a reading to start";
 }
 
 const NODE = { hardware: "hardware", agent: "agent", ml: "ml", therapy: "ml", mobile: "mobile", error: "hardware" };
 function step(n, cls) { const el = $(`#p-${n}`); el.classList.remove("active", "done", "warn"); if (cls) el.classList.add(cls); }
+// Data packet travelling between two stages. Agent ⇄ Model uses the two-lane link.
+const LINKS = { "hardware>agent": ["l-1", 0, "go"], "agent>ml": ["l-2", 0, "go"], "ml>agent": ["l-2", 1, "back"],
+                "ml>mobile": ["l-3", 0, "go"], "agent>mobile": ["l-3", 0, "go"] };
+let lastNode = null;
+function flow(from, to) {
+  const l = LINKS[`${from}>${to}`]; if (!l) return;
+  const link = $(`#${l[0]}`), pk = link.querySelectorAll(".pk")[l[1]];
+  link.classList.add("lit");
+  pk.classList.remove("go", "back"); void pk.offsetWidth; pk.classList.add(l[2]);
+}
+function resetPipe() {
+  ["hardware", "agent", "ml", "mobile"].forEach((n) => { step(n, ""); $(`#s-${n}`).textContent = "idle"; });
+  document.querySelectorAll(".link").forEach((l) => l.classList.remove("lit"));
+  lastNode = null;
+}
+const WHO = { hardware: "patch", agent: "agent", ml: "model", therapy: "model", mobile: "app", error: "error" };
+function narrate(ev) {
+  const warn = ev.status === "warn" || ev.status === "error";
+  $("#now").className = `now${warn ? " warn" : ""}`;
+  $("#nowWho").textContent = WHO[ev.stage] || ev.stage;
+  $("#nowWhat").innerHTML = `${esc(ev.title.replace(/^Tool · /, "Calling "))}${ev.detail ? `<span>${esc(ev.detail)}</span>` : ""}`;
+  $("#nowWhat").classList.toggle("thinking", ev.title === "Opus reasoning");
+}
 let queue = [], draining = false, thinking = null;
 
 function log(ev) {
@@ -236,7 +286,14 @@ async function drain() {
   if (draining) return; draining = true;
   while (queue.length) {
     const ev = queue.shift(), n = NODE[ev.stage];
+    if (lastNode && lastNode !== n) {
+      flow(lastNode, n);
+      if ($(`#p-${lastNode}`).classList.contains("active")) step(lastNode, "done");
+      await sleep(450);
+    }
+    lastNode = n;
     step(n, ev.status === "active" ? "active" : ev.status === "warn" || ev.status === "error" ? "warn" : "done");
+    narrate(ev);
     $(`#s-${n}`).textContent = status(ev);
     log(ev); handle(ev);
     await sleep(ev.stage === "mobile" ? 120 : 550);
@@ -276,7 +333,7 @@ async function send() {
     body[k] = v;
   }
   $("#err").textContent = ""; busy = true; $("#send").disabled = true; $("#send").textContent = "Running…";
-  ["hardware", "agent", "ml", "mobile"].forEach((n) => step(n, ""));
+  resetPipe();
   if ($("#log").children.length) { const g = document.createElement("li"); g.className = "gap"; $("#log").appendChild(g); }
   try {
     const res = await fetch("/api/reading", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });

@@ -6,7 +6,7 @@ pipeline and streams every step to the browser:
     patch reading -> Opus agent -> XGBoost model -> treatment plan -> mobile app
 
 Run:
-    python demo_ui/server.py            # http://localhost:8000
+    python demo_ui/server.py            # http://localhost:8000, and on the LAN for the phone app
     python demo_ui/server.py --offline  # never call the LLM (no API key needed)
 
 With ANTHROPIC_API_KEY set (in .env), the agent step runs wound_agent.run_assessment
@@ -34,6 +34,7 @@ sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv  # noqa: E402
 from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
@@ -366,6 +367,9 @@ def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
             "risk_series": risk_series,
             "history": hist[["hour", *SENSOR_COLUMNS]].iloc[::2].round(3).to_dict("records"),
         }
+        state["zones"] = zones(state["baseline"])
+        state["seq"] = next_seq()
+        state["updated_at"] = time.time()
         wound.latest_assessment = state
         emit("mobile", "done", "Sent to app",
              {"normal": "Normal", "warning": "Warning", "infection": "Infection alert", "fault": "Check patch"}[level],
@@ -375,8 +379,18 @@ def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
 
 # --------------------------------------------------------------------------- app
 app = FastAPI(title="Amethyst live demo")
+# The Expo app polls /api/state from the phone (or Expo web in a browser).
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST"], allow_headers=["*"])
 WOUND = Wound()
 OFFLINE = False
+SEQ = 0          # bumps on every new assessment or reset so the app knows something changed
+RUNNING = False  # a reading is being processed right now
+
+
+def next_seq() -> int:
+    global SEQ
+    SEQ += 1
+    return SEQ
 
 
 @app.get("/")
@@ -398,14 +412,17 @@ def patient_config() -> dict:
 
 @app.get("/api/state")
 def state():
-    """Latest assessment; the Expo app can poll this."""
-    return WOUND.latest_assessment or {"wound_id": WOUND_ID, "hours": float(WOUND.history["hour"].iloc[-1])}
+    """Latest assessment; the Expo app polls this. `level` is absent until the first reading."""
+    base = WOUND.latest_assessment or {"wound_id": WOUND_ID, "hours": float(WOUND.history["hour"].iloc[-1]),
+                                       "baseline": WOUND.baseline(), "zones": zones(WOUND.baseline()), "seq": SEQ}
+    return {**base, "running": RUNNING}
 
 
 @app.post("/api/reset")
 def reset():
     global WOUND
     WOUND = Wound(seed=int(time.time()) % 10_000)
+    next_seq()
     return patient_config()
 
 
@@ -422,6 +439,8 @@ async def reading(r: Reading):
         loop.call_soon_threadsafe(queue.put_nowait, ev)
 
     def work():
+        global RUNNING
+        RUNNING = True
         try:
             run_pipeline(WOUND, r, use_llm, emit)
         except ValueError as exc:
@@ -429,6 +448,7 @@ async def reading(r: Reading):
         except Exception as exc:  # surface anything else to the UI
             emit("error", "error", "Pipeline error", repr(exc)[:300])
         finally:
+            RUNNING = False
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
     threading.Thread(target=work, daemon=True).start()
@@ -445,8 +465,19 @@ if __name__ == "__main__":
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--host", default="127.0.0.1")
+    # 0.0.0.0 so a phone on the same Wi-Fi can reach /api/state; use --host 127.0.0.1 to keep it local
+    ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--offline", action="store_true", help="never call the LLM")
     a = ap.parse_args()
     OFFLINE = a.offline
+    if a.host == "0.0.0.0":
+        import socket
+
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            try:
+                s.connect(("10.255.255.255", 1))
+                ip = s.getsockname()[0]
+            except OSError:
+                ip = "<this laptop's IP>"
+        print(f"\n  Demo UI:  http://localhost:{a.port}\n  App API:  http://{ip}:{a.port}  (set this in the Expo app if it can't find the server)\n")
     uvicorn.run(app, host=a.host, port=a.port)
