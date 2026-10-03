@@ -1,0 +1,60 @@
+{
+  "id": "StudioReady",
+  "bpm": 120,
+  "fps": 60,
+  "offsetFrames": 0,
+  "durationInFrames": 180,
+  "beats": [
+    {
+      "beat": 0,
+      "frame": 0,
+      "time": 0
+    },
+    {
+      "beat": 1,
+      "frame": 30,
+      "time": 0.5
+    },
+    {
+      "beat": 2,
+      "frame": 60,
+      "time": 1
+    },
+    {
+      "beat": 3,
+      "frame": 90,
+      "time": 1.5
+    },
+    {
+      "beat": 4,
+      "frame": 120,
+      "time": 2
+    },
+    {
+      "beat": 5,
+      "frame": 150,
+      "time": 2.5
+    }
+  ],
+  "downbeats": [
+    {
+      "beat": 0,
+      "frame": 0,
+      "time": 0
+    },
+    {
+      "beat": 4,
+      "frame": 120,
+      "time": 2
+    }
+  ],
+  "hits": [
+    {
+      "name": "beep",
+      "sfx": "beep.wav",
+      "beat": 2,
+      "frame": 60,
+      "time": 1
+    }
+  ]
+}

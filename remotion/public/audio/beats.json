@@ -1,0 +1,465 @@
+{
+  "id": "AmethystDemo",
+  "bpm": 120,
+  "fps": 60,
+  "offsetFrames": 0,
+  "durationInFrames": 1800,
+  "beats": [
+    {
+      "beat": 0,
+      "frame": 0,
+      "time": 0
+    },
+    {
+      "beat": 1,
+      "frame": 30,
+      "time": 0.5
+    },
+    {
+      "beat": 2,
+      "frame": 60,
+      "time": 1
+    },
+    {
+      "beat": 3,
+      "frame": 90,
+      "time": 1.5
+    },
+    {
+      "beat": 4,
+      "frame": 120,
+      "time": 2
+    },
+    {
+      "beat": 5,
+      "frame": 150,
+      "time": 2.5
+    },
+    {
+      "beat": 6,
+      "frame": 180,
+      "time": 3
+    },
+    {
+      "beat": 7,
+      "frame": 210,
+      "time": 3.5
+    },
+    {
+      "beat": 8,
+      "frame": 240,
+      "time": 4
+    },
+    {
+      "beat": 9,
+      "frame": 270,
+      "time": 4.5
+    },
+    {
+      "beat": 10,
+      "frame": 300,
+      "time": 5
+    },
+    {
+      "beat": 11,
+      "frame": 330,
+      "time": 5.5
+    },
+    {
+      "beat": 12,
+      "frame": 360,
+      "time": 6
+    },
+    {
+      "beat": 13,
+      "frame": 390,
+      "time": 6.5
+    },
+    {
+      "beat": 14,
+      "frame": 420,
+      "time": 7
+    },
+    {
+      "beat": 15,
+      "frame": 450,
+      "time": 7.5
+    },
+    {
+      "beat": 16,
+      "frame": 480,
+      "time": 8
+    },
+    {
+      "beat": 17,
+      "frame": 510,
+      "time": 8.5
+    },
+    {
+      "beat": 18,
+      "frame": 540,
+      "time": 9
+    },
+    {
+      "beat": 19,
+      "frame": 570,
+      "time": 9.5
+    },
+    {
+      "beat": 20,
+      "frame": 600,
+      "time": 10
+    },
+    {
+      "beat": 21,
+      "frame": 630,
+      "time": 10.5
+    },
+    {
+      "beat": 22,
+      "frame": 660,
+      "time": 11
+    },
+    {
+      "beat": 23,
+      "frame": 690,
+      "time": 11.5
+    },
+    {
+      "beat": 24,
+      "frame": 720,
+      "time": 12
+    },
+    {
+      "beat": 25,
+      "frame": 750,
+      "time": 12.5
+    },
+    {
+      "beat": 26,
+      "frame": 780,
+      "time": 13
+    },
+    {
+      "beat": 27,
+      "frame": 810,
+      "time": 13.5
+    },
+    {
+      "beat": 28,
+      "frame": 840,
+      "time": 14
+    },
+    {
+      "beat": 29,
+      "frame": 870,
+      "time": 14.5
+    },
+    {
+      "beat": 30,
+      "frame": 900,
+      "time": 15
+    },
+    {
+      "beat": 31,
+      "frame": 930,
+      "time": 15.5
+    },
+    {
+      "beat": 32,
+      "frame": 960,
+      "time": 16
+    },
+    {
+      "beat": 33,
+      "frame": 990,
+      "time": 16.5
+    },
+    {
+      "beat": 34,
+      "frame": 1020,
+      "time": 17
+    },
+    {
+      "beat": 35,
+      "frame": 1050,
+      "time": 17.5
+    },
+    {
+      "beat": 36,
+      "frame": 1080,
+      "time": 18
+    },
+    {
+      "beat": 37,
+      "frame": 1110,
+      "time": 18.5
+    },
+    {
+      "beat": 38,
+      "frame": 1140,
+      "time": 19
+    },
+    {
+      "beat": 39,
+      "frame": 1170,
+      "time": 19.5
+    },
+    {
+      "beat": 40,
+      "frame": 1200,
+      "time": 20
+    },
+    {
+      "beat": 41,
+      "frame": 1230,
+      "time": 20.5
+    },
+    {
+      "beat": 42,
+      "frame": 1260,
+      "time": 21
+    },
+    {
+      "beat": 43,
+      "frame": 1290,
+      "time": 21.5
+    },
+    {
+      "beat": 44,
+      "frame": 1320,
+      "time": 22
+    },
+    {
+      "beat": 45,
+      "frame": 1350,
+      "time": 22.5
+    },
+    {
+      "beat": 46,
+      "frame": 1380,
+      "time": 23
+    },
+    {
+      "beat": 47,
+      "frame": 1410,
+      "time": 23.5
+    },
+    {
+      "beat": 48,
+      "frame": 1440,
+      "time": 24
+    },
+    {
+      "beat": 49,
+      "frame": 1470,
+      "time": 24.5
+    },
+    {
+      "beat": 50,
+      "frame": 1500,
+      "time": 25
+    },
+    {
+      "beat": 51,
+      "frame": 1530,
+      "time": 25.5
+    },
+    {
+      "beat": 52,
+      "frame": 1560,
+      "time": 26
+    },
+    {
+      "beat": 53,
+      "frame": 1590,
+      "time": 26.5
+    },
+    {
+      "beat": 54,
+      "frame": 1620,
+      "time": 27
+    },
+    {
+      "beat": 55,
+      "frame": 1650,
+      "time": 27.5
+    },
+    {
+      "beat": 56,
+      "frame": 1680,
+      "time": 28
+    },
+    {
+      "beat": 57,
+      "frame": 1710,
+      "time": 28.5
+    },
+    {
+      "beat": 58,
+      "frame": 1740,
+      "time": 29
+    },
+    {
+      "beat": 59,
+      "frame": 1770,
+      "time": 29.5
+    }
+  ],
+  "downbeats": [
+    {
+      "beat": 0,
+      "frame": 0,
+      "time": 0
+    },
+    {
+      "beat": 4,
+      "frame": 120,
+      "time": 2
+    },
+    {
+      "beat": 8,
+      "frame": 240,
+      "time": 4
+    },
+    {
+      "beat": 12,
+      "frame": 360,
+      "time": 6
+    },
+    {
+      "beat": 16,
+      "frame": 480,
+      "time": 8
+    },
+    {
+      "beat": 20,
+      "frame": 600,
+      "time": 10
+    },
+    {
+      "beat": 24,
+      "frame": 720,
+      "time": 12
+    },
+    {
+      "beat": 28,
+      "frame": 840,
+      "time": 14
+    },
+    {
+      "beat": 32,
+      "frame": 960,
+      "time": 16
+    },
+    {
+      "beat": 36,
+      "frame": 1080,
+      "time": 18
+    },
+    {
+      "beat": 40,
+      "frame": 1200,
+      "time": 20
+    },
+    {
+      "beat": 44,
+      "frame": 1320,
+      "time": 22
+    },
+    {
+      "beat": 48,
+      "frame": 1440,
+      "time": 24
+    },
+    {
+      "beat": 52,
+      "frame": 1560,
+      "time": 26
+    },
+    {
+      "beat": 56,
+      "frame": 1680,
+      "time": 28
+    }
+  ],
+  "hits": [
+    {
+      "name": "contact",
+      "sfx": "contact.wav",
+      "beat": 4,
+      "frame": 120,
+      "time": 2
+    },
+    {
+      "name": "activate",
+      "sfx": "activate.wav",
+      "beat": 9.5,
+      "frame": 285,
+      "time": 4.75
+    },
+    {
+      "name": "whoosh: reading to agent",
+      "sfx": "whoosh.wav",
+      "beat": 15.5,
+      "frame": 465,
+      "time": 7.75
+    },
+    {
+      "name": "tick: get_sensor_reading",
+      "sfx": "tick.wav",
+      "beat": 18.5,
+      "frame": 555,
+      "time": 9.25
+    },
+    {
+      "name": "tick: predict_infection",
+      "sfx": "tick.wav",
+      "beat": 21,
+      "frame": 630,
+      "time": 10.5
+    },
+    {
+      "name": "tick: plan_treatment",
+      "sfx": "tick.wav",
+      "beat": 24,
+      "frame": 720,
+      "time": 12
+    },
+    {
+      "name": "whoosh: assessment to app",
+      "sfx": "whoosh.wav",
+      "beat": 33,
+      "frame": 990,
+      "time": 16.5
+    },
+    {
+      "name": "tick: start therapy",
+      "sfx": "tick.wav",
+      "beat": 42,
+      "frame": 1260,
+      "time": 21
+    },
+    {
+      "name": "whoosh: ring to patch",
+      "sfx": "whoosh.wav",
+      "beat": 50,
+      "frame": 1500,
+      "time": 25
+    },
+    {
+      "name": "warm hit: treatment",
+      "sfx": "warm-hit.wav",
+      "beat": 51.5,
+      "frame": 1545,
+      "time": 25.75
+    },
+    {
+      "name": "resolve: logo",
+      "sfx": "resolve.wav",
+      "beat": 56,
+      "frame": 1680,
+      "time": 28
+    }
+  ]
+}

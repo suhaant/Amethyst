@@ -1,0 +1,125 @@
+diff --git a/src/components/Icon.tsx b/src/components/Icon.tsx
+index 05c1bf1..c4be6f7 100644
+--- a/src/components/Icon.tsx
++++ b/src/components/Icon.tsx
+@@ -4,6 +4,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
+ const icons = {
+   bell: { paths: ['M10.268 21a2 2 0 0 0 3.464 0', 'M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326'] },
+   check: { paths: ['M20 6 9 17l-5-5'] },
++  heart: { paths: ['M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5'] },
++  activity: { paths: ['M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2'] },
+   alert: { paths: ['m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3', 'M12 9v4', 'M12 17h.01'] },
+   shield: { paths: ['M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z', 'M12 8v4', 'M12 16h.01'] },
+   droplet: { paths: ['M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z'] },
+diff --git a/src/data/mock.ts b/src/data/mock.ts
+index 327c6f1..aa4fad3 100644
+--- a/src/data/mock.ts
++++ b/src/data/mock.ts
+@@ -21,14 +21,30 @@ export const current = {
+   updated: '2 min ago',
+ };
+ 
++// Matches the wound agent's sample assessment (WolfHacks agent-reasoning:
++// sample_data/reading_example.json). Probability 0.8176 -> score 82, band
++// "moderate" (infection detected, below the "high" band) -> Warning.
+ export const alertReading = {
+   risk: 'warning' as Risk,
+-  score: 58,
++  score: 82,
+   phFrom: 6.1,
+-  phTo: 7.2,
+-  tempDelta: 1.1,
++  phTo: 7.3,
++  tempDelta: 2.3,
++  moisture: 68,
++  heartRate: 94,
++  glycemicCv: 31.5,
+   // pH every hour for the last 6 hours
+-  phSeries: [6.1, 6.2, 6.35, 6.6, 6.9, 7.05, 7.2],
++  phSeries: [6.1, 6.2, 6.35, 6.6, 6.9, 7.1, 7.3],
++};
++
++// The agent's treatment plan for that assessment (treatment.py, "moderate").
++// Every dose here is a placeholder in the agent pending clinical sign-off.
++export const plan = {
++  band: 'moderate',
++  lightMinutes: 15,
++  ultrasoundKhz: 35,
++  ultrasoundMinutes: 7,
++  sessionsPerDay: 2,
+ };
+ 
+ export const week = {
+diff --git a/src/screens/AlertScreen.tsx b/src/screens/AlertScreen.tsx
+index ca14802..336f661 100644
+--- a/src/screens/AlertScreen.tsx
++++ b/src/screens/AlertScreen.tsx
+@@ -54,6 +54,19 @@ export function AlertScreen({ go }: { go: (r: Route) => void }) {
+         </Card>
+       </View>
+ 
++      <View style={{ flexDirection: 'row', gap: 12 }}>
++        {[
++          { label: 'Moisture', value: `${r.moisture}%` },
++          { label: 'Heart rate', value: `${r.heartRate} bpm` },
++          { label: 'Glucose var.', value: `${r.glycemicCv}%` },
++        ].map((m) => (
++          <Card key={m.label} style={{ flex: 1, gap: 4, paddingHorizontal: 12, paddingVertical: 12 }}>
++            <Text style={type.caption}>{m.label}</Text>
++            <Text style={{ fontFamily: font.mono, fontSize: 17, color: color.ink }}>{m.value}</Text>
++          </Card>
++        ))}
++      </View>
++
+       <View style={{ flex: 1 }} />
+ 
+       <Text style={type.caption}>This is an early warning, not a diagnosis. If risk stays high for 24 hours, book a visit with your care team.</Text>
+diff --git a/src/screens/TherapyScreen.tsx b/src/screens/TherapyScreen.tsx
+index b13da44..9476d69 100644
+--- a/src/screens/TherapyScreen.tsx
++++ b/src/screens/TherapyScreen.tsx
+@@ -3,14 +3,14 @@ import { ScrollView, Text, View } from 'react-native';
+ import Svg, { Circle } from 'react-native-svg';
+ import { Icon } from '../components/Icon';
+ import { Card, Eyebrow, IconButton, PrimaryButton, SecondaryButton } from '../components/ui';
+-import { Route } from '../data/mock';
++import { plan, Route } from '../data/mock';
+ import { color, font, type } from '../theme';
+ 
+-const LIGHT_DOSE_SECONDS = 10 * 60;
++const LIGHT_DOSE_SECONDS = plan.lightMinutes * 60;
+ 
+ export function TherapyScreen({ go }: { go: (r: Route) => void }) {
+   // Live countdown so the demo moves on stage.
+-  const [remaining, setRemaining] = useState(372);
++  const [remaining, setRemaining] = useState(540);
+   const [paused, setPaused] = useState(false);
+   useEffect(() => {
+     if (paused || remaining <= 0) return;
+@@ -30,7 +30,7 @@ export function TherapyScreen({ go }: { go: (r: Route) => void }) {
+     <ScrollView contentContainerStyle={{ padding: 16, gap: 20, flexGrow: 1 }}>
+       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8 }}>
+         <IconButton icon="back" label="Back" onPress={() => go('home')} />
+-        <Eyebrow>Session 2 of 4 today</Eyebrow>
++        <Eyebrow>{`Session 1 of ${plan.sessionsPerDay} today`}</Eyebrow>
+       </View>
+ 
+       <Text style={type.title}>{done ? 'Therapy complete' : 'Therapy in progress'}</Text>
+@@ -65,7 +65,7 @@ export function TherapyScreen({ go }: { go: (r: Route) => void }) {
+           <Icon name="check" color={color.riskNormal} strokeWidth={2} />
+           <View style={{ flex: 1 }}>
+             <Text style={type.headline}>Ultrasound</Text>
+-            <Text style={type.caption}>Biofilm broken up · 40 kHz · 5 min</Text>
++            <Text style={type.caption}>{`Biofilm broken up · ${plan.ultrasoundKhz} kHz · ${plan.ultrasoundMinutes} min`}</Text>
+           </View>
+           <Text style={{ fontFamily: font.semibold, fontSize: 13, color: color.riskNormal }}>Done</Text>
+         </View>
+@@ -73,7 +73,7 @@ export function TherapyScreen({ go }: { go: (r: Route) => void }) {
+           <Icon name={done ? 'check' : 'sun'} color={done ? color.riskNormal : color.brand} />
+           <View style={{ flex: 1 }}>
+             <Text style={type.headline}>Violet light</Text>
+-            <Text style={type.caption}>405 nm · 10 min dose</Text>
++            <Text style={type.caption}>{`405 nm · ${plan.lightMinutes} min dose`}</Text>
+           </View>
+           <Text style={{ fontFamily: font.semibold, fontSize: 13, color: done ? color.riskNormal : color.brand }}>{done ? 'Done' : paused ? 'Paused' : 'Running'}</Text>
+         </View>
