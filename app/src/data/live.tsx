@@ -1,5 +1,6 @@
 // Live data from the Amethyst demo server (demo_ui/server.py on the laptop).
-// The app polls GET /api/state once a second. Every reading typed into the demo UI runs
+// The app polls GET /api/state once a second through the Expo dev server, which forwards it
+// to the demo server (see metro.config.js), so it works over Wi-Fi and over `--tunnel`. Every reading typed into the demo UI runs
 // the agent + XGBoost model there, and the result shows up here a moment later.
 // Until the server answers, the screens show the fallback values from mock.ts.
 import Constants from 'expo-constants';
@@ -9,7 +10,6 @@ import { Risk } from '../theme';
 import { alertReading, current, plan as mockPlan, thresholds as mockThresholds, week } from './mock';
 
 const POLL_MS = 1000;
-const PORT = 8000;
 
 export type Level = Risk | 'fault';
 
@@ -72,12 +72,12 @@ export type Live = {
 
 function defaultApiUrl(): string {
   if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
-  // In Expo Go, hostUri is the laptop running `expo start` (e.g. "192.168.1.20:8081").
-  // The demo server runs on the same laptop.
-  const host = Constants.expoConfig?.hostUri?.split(':')[0];
-  if (host) return `http://${host}:${PORT}`;
-  if (Platform.OS === 'web' && typeof window !== 'undefined') return `http://${window.location.hostname}:${PORT}`;
-  return `http://localhost:${PORT}`;
+  // In Expo Go, hostUri is the dev server the app was loaded from: "192.168.1.20:8081" on
+  // Wi-Fi, or "xxxx-anonymous-8081.exp.direct" with --tunnel (HTTPS, no port).
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) return hostUri.includes(':') ? `http://${hostUri}` : `https://${hostUri}`;
+  if (Platform.OS === 'web' && typeof window !== 'undefined') return window.location.origin;
+  return 'http://localhost:8081';
 }
 
 const HEADLINE: Record<Level, string> = {
@@ -215,6 +215,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       const timer = setTimeout(() => ctrl.abort(), 2500);
       try {
         const res = await fetch(`${apiUrl.replace(/\/$/, '')}/api/state`, { signal: ctrl.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const st: ServerState = await res.json();
         if (!alive) return;
         if (st.seq !== lastSeq.current) {
