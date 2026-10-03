@@ -139,3 +139,27 @@ Scores are optimistic because the model is tested on the same simulator it learn
 - 40 kHz ultrasound, 4–10 min at 0.1–0.5 W/cm² (tier ≥2), run before the LED
 - 1.5 MHz ultrasound, 30 mW/cm², 20% duty, 20 min/day (monitor tier only)
 - Interlock: no treatment while impedance > 150 kΩ (patch lifted)
+
+## Using the trained model (`predict.py`)
+
+The trained XGBoost model is in `model/`:
+- `xgboost_model.json` — model in XGBoost's portable JSON format (4.4 MB)
+- `model_meta.json` — feature order, class labels, training settings
+
+It was trained on all 600 simulated wounds (all 16 glucose participants).
+
+```bash
+python predict.py readings.csv --out risk.csv    # or readings.json
+```
+
+```python
+from predict import WoundRiskModel
+model = WoundRiskModel()
+result = model.predict(readings_df)   # per reading: p_infected, risk_score (0-100), tier
+plan = model.latest_plan(result)      # per wound: LED / ultrasound plan for the next session
+```
+
+Input columns: `wound_id`, `timestamp` (or `hour`), `ph`, `temp_c`, `impedance_kohm`,
+`blood_glucose_mgdl`, `wound_glucose_mM`, one row every 30 min. Send each wound's full
+history: the first 24 h set the patient's baseline (no risk returned for them) and the
+features use 6 h and 24 h trends.

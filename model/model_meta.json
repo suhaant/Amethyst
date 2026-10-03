@@ -1,0 +1,49 @@
+{
+  "features": [
+    "ph_sm",
+    "ph_vs_base",
+    "ph_d6h",
+    "ph_d24h",
+    "ph_std24h",
+    "temp_c_sm",
+    "temp_c_vs_base",
+    "temp_c_d6h",
+    "temp_c_d24h",
+    "temp_c_std24h",
+    "log_z_sm",
+    "log_z_vs_base",
+    "log_z_d6h",
+    "log_z_d24h",
+    "log_z_std24h",
+    "blood_glucose_mgdl_sm",
+    "blood_glucose_mgdl_vs_base",
+    "blood_glucose_mgdl_d6h",
+    "blood_glucose_mgdl_d24h",
+    "blood_glucose_mgdl_std24h",
+    "wound_glucose_mM_sm",
+    "wound_glucose_mM_vs_base",
+    "wound_glucose_mM_d6h",
+    "wound_glucose_mM_d24h",
+    "wound_glucose_mM_std24h",
+    "tod_sin",
+    "tod_cos"
+  ],
+  "labels": [
+    "normal",
+    "warning",
+    "infection"
+  ],
+  "step_min": 30,
+  "trained_on": "600 simulated wounds x 14 days (403,200 readings), real Dexcom glucose from 16 BIG IDEAs participants",
+  "validation": "leave-one-person-out: AUC 0.978, Brier skill 0.845, simulated data only",
+  "xgboost_params": {
+    "objective": "multi:softprob",
+    "colsample_bytree": 0.8,
+    "learning_rate": 0.1,
+    "max_depth": 6,
+    "min_child_weight": 5,
+    "n_estimators": 300,
+    "subsample": 0.8,
+    "tree_method": "hist"
+  }
+}
