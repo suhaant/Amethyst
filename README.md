@@ -163,3 +163,9 @@ Input columns: `wound_id`, `timestamp` (or `hour`), `ph`, `temp_c`, `impedance_k
 `blood_glucose_mgdl`, `wound_glucose_mM`, one row every 30 min. Send each wound's full
 history: the first 24 h set the patient's baseline (no risk returned for them) and the
 features use 6 h and 24 h trends.
+
+## Databricks
+
+The `databricks/` folder runs the same pipeline on Databricks: Delta tables (Bronze/Silver/Gold),
+MLflow-tracked training, a Unity Catalog model that takes raw readings, a Model Serving endpoint,
+batch scoring, and a live demo replay. See [`databricks/README.md`](databricks/README.md).

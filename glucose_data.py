@@ -15,7 +15,9 @@ import os
 import numpy as np
 import pandas as pd
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "bigideas")
+# override with WOUND_GLUCOSE_DIR (e.g. a Databricks Unity Catalog volume path)
+DATA_DIR = os.environ.get("WOUND_GLUCOSE_DIR",
+                          os.path.join(os.path.dirname(__file__), "data", "bigideas"))
 
 
 def load_participants(step_min=30):
