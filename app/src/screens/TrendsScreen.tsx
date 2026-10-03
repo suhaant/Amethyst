@@ -3,15 +3,28 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { Icon } from '../components/Icon';
 import { LineChart } from '../components/LineChart';
 import { Card } from '../components/ui';
-import { thresholds, week } from '../data/mock';
+import { useLive } from '../data/live';
 import { color, font, radius, type } from '../theme';
 
-const ranges = ['24h', '7 days', '30 days'] as const;
+const ranges = ['6h', '24h', 'All'] as const;
+const POINTS: Record<(typeof ranges)[number], number> = { '6h': 7, '24h': 25, All: Infinity }; // history is hourly
 
 export function TrendsScreen() {
-  const [range, setRange] = useState<(typeof ranges)[number]>('7 days');
-  const avg = week.ph.reduce((a, b) => a + b, 0) / week.ph.length;
-  const peak = week.ph.indexOf(Math.max(...week.ph));
+  const live = useLive();
+  const thresholds = live.thresholds;
+  const [range, setRange] = useState<(typeof ranges)[number]>('All');
+  const n = POINTS[range];
+  const tail = <T,>(a: T[]) => (a.length > n ? a.slice(-n) : a);
+  const ph = tail(live.trend.ph);
+  const tempDelta = tail(live.trend.tempDelta);
+  const hours = tail(live.trend.hours);
+  const risk = tail(live.trend.risk);
+  const avg = ph.reduce((a, b) => a + b, 0) / Math.max(1, ph.length);
+  const peak = ph.indexOf(Math.max(...ph));
+  // Axis labels: hours since the patch went on (or weekdays for the offline demo data)
+  const labels = live.hasReading
+    ? [hours[0], hours[Math.floor(hours.length / 2)], hours[hours.length - 1]].map((h) => `H${Math.round(h ?? 0)}`)
+    : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
@@ -39,20 +52,20 @@ export function TrendsScreen() {
           <Text style={type.headline}>Wound pH</Text>
           <Text style={type.reading}>avg {avg.toFixed(1)}</Text>
         </View>
-        <LineChart values={week.ph} min={5} max={8} height={120} rules={[{ at: thresholds.warningPh }, { at: thresholds.infectionPh }]} highlightIndex={peak} />
+        <LineChart values={ph} min={Math.min(6.2, ...ph) - 0.1} max={Math.max(7.6, ...ph) + 0.1} height={120} rules={[{ at: thresholds.warningPh }, { at: thresholds.infectionPh }]} highlightIndex={peak} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          {week.days.map((d) => (
+          {labels.map((d) => (
             <Text key={d} style={[type.eyebrow, { color: color.inkMuted }]}>
               {d.toUpperCase()}
             </Text>
           ))}
         </View>
-        <Text style={type.caption}>Lines mark pH 6.0 (warning) and 7.5 (infection).</Text>
+        <Text style={type.caption}>{`Lines mark pH ${thresholds.warningPh.toFixed(2)} (warning) and ${thresholds.infectionPh.toFixed(2)} (infection) for this patient.`}</Text>
       </Card>
 
       <Card style={{ gap: 10 }}>
-        <Text style={type.headline}>Temperature vs. healthy skin</Text>
-        <LineChart values={week.tempDelta} min={-0.5} max={2} height={100} baseline={0} />
+        <Text style={type.headline}>Temperature vs. baseline</Text>
+        <LineChart values={tempDelta} min={Math.min(-0.5, ...tempDelta)} max={Math.max(2, ...tempDelta)} height={100} baseline={0} />
         <View style={{ flexDirection: 'row', gap: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 14, height: 2, backgroundColor: color.brand }} />
@@ -60,14 +73,30 @@ export function TrendsScreen() {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 14, height: 0, borderTopWidth: 2, borderStyle: 'dashed', borderColor: color.inkMuted }} />
-            <Text style={type.caption}>Healthy skin</Text>
+            <Text style={type.caption}>First-day baseline</Text>
           </View>
         </View>
       </Card>
 
+      {risk.length > 1 && (
+        <Card style={{ gap: 10 }}>
+          <Text style={type.headline}>Infection risk</Text>
+          <LineChart
+            values={risk}
+            min={0}
+            max={100}
+            height={100}
+            bands={[
+              { from: 55, to: 100, fill: color.riskInfectionBg },
+              { from: 30, to: 55, fill: color.riskWarningBg },
+            ]}
+          />
+        </Card>
+      )}
+
       <Card tint="brand" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: radius.md }}>
         <Icon name="zap" size={18} color={color.brand} />
-        <Text style={[type.caption, { color: color.ink, flex: 1 }]}>Thursday's rise triggered 2 therapy sessions. pH was back to normal within 18 hours.</Text>
+        <Text style={[type.caption, { color: color.ink, flex: 1 }]}>{live.insight}</Text>
       </Card>
     </ScrollView>
   );

@@ -4,10 +4,11 @@ import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono/500Medium';
 import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, IconName } from './src/components/Icon';
+import { LiveProvider, useLive } from './src/data/live';
 import { Route } from './src/data/mock';
 import { AlertScreen } from './src/screens/AlertScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -24,9 +25,28 @@ const tabs: { route: Route; label: string; icon: IconName }[] = [
 ];
 
 export default function App() {
+  return (
+    <LiveProvider>
+      <Main />
+    </LiveProvider>
+  );
+}
+
+function Main() {
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, JetBrainsMono_500Medium });
   // Start on pairing, like a first launch. Change to 'home' to skip it.
   const [route, setRoute] = useState<Route>('pair');
+  const live = useLive();
+
+  // A new assessment from the demo server: open the alert when risk is up or the patch
+  // needs attention, and go back home when the wound is healthy again.
+  const seenSeq = useRef(live.seq);
+  useEffect(() => {
+    if (live.seq === seenSeq.current) return;
+    seenSeq.current = live.seq;
+    if (!live.hasReading) return;
+    setRoute((r) => (r === 'pair' ? r : live.level === 'normal' ? (r === 'alert' ? 'home' : r) : 'alert'));
+  }, [live.seq, live.hasReading, live.level]);
 
   if (!fontsLoaded) {
     return (

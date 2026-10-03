@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Text, TextInput, View } from 'react-native';
 import { Icon } from '../components/Icon';
 import { AmethystLockup, AmethystMark } from '../components/Logo';
 import { Card, Eyebrow, PrimaryButton, SecondaryButton, StatusPill } from '../components/ui';
+import { useLive } from '../data/live';
 import { patch, Route } from '../data/mock';
 import { color, font, radius, type } from '../theme';
 
 export function PairScreen({ go }: { go: (r: Route) => void }) {
   // Fake a short Bluetooth scan so the demo feels real.
+  const live = useLive();
   const [found, setFound] = useState(false);
+  const [draft, setDraft] = useState(live.apiUrl);
   useEffect(() => {
     const t = setTimeout(() => setFound(true), 1600);
     return () => clearTimeout(t);
@@ -47,7 +50,24 @@ export function PairScreen({ go }: { go: (r: Route) => void }) {
         <PrimaryButton label={found ? 'Connect patch' : 'Searching for patch…'} onPress={found ? () => go('home') : undefined} />
         <SecondaryButton label="I need help pairing" />
       </View>
-      <Text style={{ fontFamily: font.regular, fontSize: 11, color: color.inkMuted, textAlign: 'center' }}>Demo mode · no real Bluetooth connection yet</Text>
+      <View style={{ gap: 6 }}>
+        <Text style={{ fontFamily: font.regular, fontSize: 11, color: live.connected ? color.riskNormal : color.inkMuted, textAlign: 'center' }}>
+          {live.connected ? 'Live · readings from the demo server' : 'Demo server not found · showing sample data'}
+        </Text>
+        {!live.connected && (
+          <TextInput
+            value={draft}
+            onChangeText={setDraft}
+            onSubmitEditing={() => live.setApiUrl(draft.trim())}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            returnKeyType="done"
+            accessibilityLabel="Demo server address"
+            style={{ fontFamily: font.mono, fontSize: 12, color: color.ink, textAlign: 'center', borderWidth: 1, borderColor: color.line, borderRadius: radius.md, paddingVertical: 8 }}
+          />
+        )}
+      </View>
     </View>
   );
 }
