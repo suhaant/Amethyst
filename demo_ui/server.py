@@ -285,6 +285,19 @@ class Reading(BaseModel):
     wound_glucose_mM: float
     advance_hours: float = Field(6.0, ge=0.5, le=48)
     use_agent: bool = True
+    client_id: str | None = None  # set by the demo UI so it can skip its own broadcast events
+
+
+class PatchReading(BaseModel):
+    """What the patch (or curl / Postman / a script) sends to POST /api/readings."""
+
+    ph: float = Field(description="Wound-bed pH")
+    temp_c: float = Field(description="Skin temperature, °C")
+    impedance_kohm: float = Field(description="Moisture sensor impedance at 1 kHz, kΩ (lower = wetter)")
+    blood_glucose_mgdl: float = Field(description="Blood glucose from CGM, mg/dL")
+    wound_glucose_mM: float = Field(description="Wound-fluid glucose, mM")
+    advance_hours: float = Field(0.5, ge=0.5, le=48, description="How long these values held; the patch sends every 30 min")
+    use_agent: bool = Field(False, description="Run the Claude Opus agent (slower, uses the API key) instead of offline rules")
 
 
 def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
@@ -396,6 +409,24 @@ SEQ = 0          # bumps on every new assessment or reset so the app knows somet
 RUNNING = False  # a reading is being processed right now
 
 
+SUBSCRIBERS: set[asyncio.Queue] = set()  # demo UI tabs listening on /api/events
+
+
+def make_emitter(loop, origin: str, client_id: str | None, own: asyncio.Queue | None = None):
+    """emit() for run_pipeline: sends each event to the caller (own) and to every
+    /api/events listener, tagged with where the reading came from."""
+    t0 = time.time()
+
+    def emit(stage, status, title, detail="", data=None):
+        ev = {"stage": stage, "status": status, "title": title, "detail": detail, "data": data,
+              "t": round(time.time() - t0, 2), "origin": origin, "client_id": client_id}
+        for q in [own, *SUBSCRIBERS]:
+            if q is not None:
+                loop.call_soon_threadsafe(q.put_nowait, ev)
+
+    return emit
+
+
 def next_seq() -> int:
     global SEQ
     SEQ += 1
@@ -435,29 +466,35 @@ def reset():
     return patient_config()
 
 
+def run_guarded(r: Reading | PatchReading, emit) -> dict | None:
+    global RUNNING
+    use_llm = r.use_agent and not OFFLINE and bool(os.environ.get("ANTHROPIC_API_KEY"))
+    RUNNING = True
+    try:
+        return run_pipeline(WOUND, r, use_llm, emit)
+    except ValueError as exc:
+        emit("error", "error", "Invalid reading", str(exc))
+        raise
+    except Exception as exc:  # surface anything else to the UI
+        emit("error", "error", "Pipeline error", repr(exc)[:300])
+        raise
+    finally:
+        RUNNING = False
+
+
 @app.post("/api/reading")
 async def reading(r: Reading):
-    use_llm = r.use_agent and not OFFLINE and bool(os.environ.get("ANTHROPIC_API_KEY"))
+    """Demo UI: runs the pipeline and streams each step back as NDJSON."""
     queue: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_running_loop()
-    t0 = time.time()
-
-    def emit(stage, status, title, detail="", data=None):
-        ev = {"stage": stage, "status": status, "title": title, "detail": detail,
-              "data": data, "t": round(time.time() - t0, 2)}
-        loop.call_soon_threadsafe(queue.put_nowait, ev)
+    emit = make_emitter(loop, "demo", r.client_id, own=queue)
 
     def work():
-        global RUNNING
-        RUNNING = True
         try:
-            run_pipeline(WOUND, r, use_llm, emit)
-        except ValueError as exc:
-            emit("error", "error", "Invalid reading", str(exc))
-        except Exception as exc:  # surface anything else to the UI
-            emit("error", "error", "Pipeline error", repr(exc)[:300])
+            run_guarded(r, emit)
+        except Exception:
+            pass  # already sent to the UI as an error event
         finally:
-            RUNNING = False
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
     threading.Thread(target=work, daemon=True).start()
@@ -467,6 +504,48 @@ async def reading(r: Reading):
             yield json.dumps(ev, default=float) + "\n"
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
+@app.post("/api/readings")
+async def patch_reading(r: PatchReading):
+    """Hardware API: the patch posts one reading; returns the risk, tier and therapy plan.
+    The demo UI animates it live and the app picks it up, same as a typed reading."""
+    loop = asyncio.get_running_loop()
+    emit = make_emitter(loop, "api", None)
+    try:
+        state = await asyncio.to_thread(run_guarded, r, emit)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    except Exception as exc:
+        raise HTTPException(500, repr(exc)[:300])
+    return {
+        "level": state["level"], "risk_score": state["prediction"]["risk_score"],
+        "tier": state["prediction"]["tier"], "p_infected": state["prediction"]["p_infected"],
+        "faults": state["faults"], "therapy": state["therapy_text"], "treatment": state["treatment"],
+        "summary": state["notes"]["summary"], "hours": state["hours"], "seq": state["seq"],
+    }
+
+
+@app.get("/api/events")
+async def events():
+    """Server-sent events: every pipeline step, whoever sent the reading."""
+    q: asyncio.Queue = asyncio.Queue()
+    SUBSCRIBERS.add(q)
+
+    async def stream():
+        try:
+            yield ": connected\n\n"
+            while True:
+                try:
+                    ev = await asyncio.wait_for(q.get(), timeout=15)
+                    yield f"data: {json.dumps(ev, default=float)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"
+        finally:
+            SUBSCRIBERS.discard(q)
+
+    return StreamingResponse(stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
 
 if __name__ == "__main__":

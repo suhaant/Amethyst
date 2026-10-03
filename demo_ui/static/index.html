@@ -121,6 +121,7 @@ h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
 .log li .x { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .log li .x span { color: var(--faint); margin-left: 8px; }
 .log li.w .x { color: var(--warning); }
+.log li .src { display: inline-block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--brand); border: 1px solid #DCCCF0; border-radius: 4px; padding: 0 5px; margin-right: 8px; line-height: 16px; }
 .log li.gap { display: block; height: 1px; background: var(--line); margin: 6px 0; }
 @keyframes in { from { opacity: 0; } to { opacity: 1; } }
 .thinking::after { content: "…"; animation: dots 1.2s steps(4) infinite; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; }
@@ -184,6 +185,7 @@ const ZC = { normal: "var(--z-normal)", warning: "var(--z-warning)", infection: 
 const HOLD = [0.5, 2, 4, 6, 12, 24];
 const DP = { ph: 2, temp_c: 1, impedance_kohm: 1, blood_glucose_mgdl: 0, wound_glucose_mM: 2 };
 let CFG, P, hold = 6, useAgent = false, busy = false;
+const CLIENT_ID = Math.random().toString(36).slice(2);
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -273,7 +275,8 @@ function log(ev) {
   if (thinking) { thinking.remove(); thinking = null; }
   const li = document.createElement("li");
   if (ev.status === "warn" || ev.status === "error") li.className = "w";
-  li.innerHTML = `<span class="t">${ev.t.toFixed(1)}s</span><span class="s">${ev.stage}</span><span class="x">${esc(ev.title)}${ev.detail ? `<span>${esc(ev.detail)}</span>` : ""}</span>`;
+  const src = ev.origin === "api" && ev.stage === "hardware" && ev.status === "active" ? `<span class="src">API</span>` : "";
+  li.innerHTML = `<span class="t">${ev.t.toFixed(1)}s</span><span class="s">${ev.stage}</span><span class="x">${src}${esc(ev.title)}${ev.detail ? `<span>${esc(ev.detail)}</span>` : ""}</span>`;
   $("#log").appendChild(li);
   if (ev.title === "Opus reasoning") {
     thinking = document.createElement("li");
@@ -286,6 +289,12 @@ async function drain() {
   if (draining) return; draining = true;
   while (queue.length) {
     const ev = queue.shift(), n = NODE[ev.stage];
+    if (ev.origin === "api" && ev.stage === "hardware" && ev.status === "active") {
+      // a new reading from the patch API: start a fresh run once the previous one has played
+      resetPipe();
+      if ($("#log").children.length) { const g = document.createElement("li"); g.className = "gap"; $("#log").appendChild(g); }
+      if (ev.data?.reading) { fill(ev.data.reading); scenOn(null); }
+    }
     if (lastNode && lastNode !== n) {
       flow(lastNode, n);
       if ($(`#p-${lastNode}`).classList.contains("active")) step(lastNode, "done");
@@ -326,7 +335,7 @@ function drivers(ds) {
 }
 async function send() {
   if (busy) return;
-  const body = { advance_hours: hold, use_agent: useAgent };
+  const body = { advance_hours: hold, use_agent: useAgent, client_id: CLIENT_ID };
   for (const k of ORDER) {
     const v = parseFloat($(`#f-${k}`).value), r = CFG.ranges[k];
     if (isNaN(v) || v < r.min || v > r.max) { $("#err").textContent = `${r.label} must be ${r.min}–${r.max} ${r.unit}`; return; }
@@ -347,7 +356,17 @@ async function send() {
   } catch (e) { $("#err").textContent = "Server error: " + e.message; }
   busy = false; $("#send").disabled = false; $("#send").textContent = "Send";
 }
-init(); drivers([]);
+// Readings sent by the patch / curl to POST /api/readings arrive here and run through
+// the same animation. This tab's own readings come back on its POST stream instead.
+function listen() {
+  const es = new EventSource("/api/events");
+  es.onmessage = (m) => {
+    const ev = JSON.parse(m.data);
+    if (ev.client_id === CLIENT_ID) return;
+    queue.push(ev); drain();
+  };
+}
+init(); drivers([]); listen();
 </script>
 </body>
 </html>
