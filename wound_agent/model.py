@@ -1,80 +1,46 @@
-"""Infection model adapter.
-
-Anything with `predict_proba(reading) -> float` in [0, 1] works. Swap the stub for
-the real model by setting INFECTION_MODEL_PATH (joblib/sklearn) or by adding a new
-class and returning it from `load_model()`.
-"""
+"""Adapter around Adam's trained XGBoost model (predict.WoundRiskModel)."""
 
 from __future__ import annotations
 
-import math
-import os
-from typing import Protocol
+import pandas as pd
 
-from .schemas import InfectionPrediction, SensorReading
+from predict import WoundRiskModel
 
-# PLACEHOLDER: decision threshold; set from the real model's validation results.
-INFECTION_THRESHOLD = 0.5
+from .schemas import InfectionPrediction, TreatmentPlan
 
-# Order the real model expects its features in. Update to match training.
-FEATURE_ORDER = [
-    "glycemic_variability_cv_pct",
-    "wound_skin_temp_c",
-    "heart_rate_bpm",
-    "ph",
-    "moisture_pct",
-]
+STEPS_PER_HOUR = 2  # model works on 30-minute readings
 
 
-class InfectionModel(Protocol):
-    name: str
-    is_placeholder: bool
+class RiskModel:
+    name = "xgboost (model/xgboost_model.json)"
 
-    def predict_proba(self, reading: SensorReading) -> float: ...
+    def __init__(self) -> None:
+        self._model = WoundRiskModel()
+        self.meta = self._model.meta
 
+    def predict(self, history: pd.DataFrame) -> tuple[InfectionPrediction, pd.DataFrame]:
+        """Score every reading after the first 24 h; summarise the latest one."""
+        result = self._model.predict(history)
+        last = result.iloc[-1]
+        risk = result["risk_score"].tolist()
 
-class StubModel:
-    """Hand-tuned logistic score standing in for the trained model. NOT a real model."""
+        def risk_ago(hours: int) -> float | None:
+            i = len(risk) - 1 - hours * STEPS_PER_HOUR
+            return float(risk[i]) if i >= 0 else None
 
-    name = "stub-heuristic-v0"
-    is_placeholder = True
-
-    def predict_proba(self, reading: SensorReading) -> float:
-        z = (
-            0.08 * (reading.glycemic_variability_cv_pct - 28)
-            + 0.9 * (reading.wound_skin_temp_c - 35.0)
-            + 0.05 * (reading.heart_rate_bpm - 90)
-            + 1.6 * (reading.ph - 7.0)
-            + 0.06 * (reading.moisture_pct - 65)
+        prediction = InfectionPrediction(
+            p_infected=float(last["p_infected"]),
+            predicted_label=str(last["predicted_label"]),
+            risk_score=float(last["risk_score"]),
+            risk_score_6h_ago=risk_ago(6),
+            risk_score_24h_ago=risk_ago(24),
+            tier=str(last["tier_name"]),
+            model_name=self.name,
         )
-        return 1.0 / (1.0 + math.exp(-z))
+        return prediction, result
 
-
-class JoblibModel:
-    """Loads a scikit-learn style classifier saved with joblib."""
-
-    def __init__(self, path: str):
-        import joblib  # only needed once a real model exists
-
-        self.name = os.path.basename(path)
-        self.is_placeholder = False
-        self._model = joblib.load(path)
-
-    def predict_proba(self, reading: SensorReading) -> float:
-        row = [[getattr(reading, f) for f in FEATURE_ORDER]]
-        return float(self._model.predict_proba(row)[0][1])
-
-
-def load_model() -> InfectionModel:
-    path = os.environ.get("INFECTION_MODEL_PATH")
-    return JoblibModel(path) if path else StubModel()
-
-
-def predict(model: InfectionModel, reading: SensorReading) -> InfectionPrediction:
-    p = min(max(model.predict_proba(reading), 0.0), 1.0)
-    return InfectionPrediction(
-        probability=round(p, 4),
-        infection_detected=p >= INFECTION_THRESHOLD,
-        threshold=INFECTION_THRESHOLD,
-        model_name=model.name,
-    )
+    def plan(self, result: pd.DataFrame) -> TreatmentPlan:
+        """Next-session plan from risk_to_dose, including the patch-lifted interlock."""
+        plan = next(iter(WoundRiskModel.latest_plan(result).values()))
+        skipped = plan.pop("status", None)
+        return TreatmentPlan(skipped_reason=skipped, **plan)

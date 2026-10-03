@@ -1,7 +1,14 @@
+.venv/
 __pycache__/
 *.pyc
-.venv/
-.env
+.DS_Store
 .pytest_cache/
+# secrets
+.env
+# generated (re-create with run_all.sh)
+data/
+models/
+demo_dataset/
 output/
-*.joblib
+*.xlsx
+*.log

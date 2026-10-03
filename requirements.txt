@@ -1,5 +1,11 @@
+# Python 3.12+ (numpy 2.5 and xgboost 3.4 dropped 3.11)
+joblib==1.6.0
+numpy==2.5.3
+openpyxl==3.1.5
+pandas==3.0.6
+scikit-learn==1.9.1
+xgboost==3.4.1
+# agent
 anthropic>=0.109,<1
-pydantic>=2
 python-dotenv
 pytest
-# joblib  # uncomment once the real model is a joblib/sklearn file
