@@ -384,7 +384,12 @@ function therapyText(p, fallback) {
 }
 function renderNotes(n, source) {
   $("#srcChip").textContent = source === "opus" ? "Claude Opus" : "offline";
-  $("#quote").classList.remove("muted"); $("#quote").textContent = n.summary;
+  $("#quote").classList.remove("muted");
+  const full = String(n.summary || ""), first = (full.match(/^.*?[.!?](\s|$)/) || [full])[0].trim();
+  if (first.length < full.length) {
+    $("#quote").innerHTML = `${esc(first)} <a href="#" id="more" style="color:var(--brand);font-size:13px;text-decoration:none;font-weight:500">more</a>`;
+    $("#more").onclick = (e) => { e.preventDefault(); $("#quote").textContent = full; };
+  } else $("#quote").textContent = full;
   const html = [`<span class="tag">${esc(n.confidence)} confidence</span>`];
   if (n.recommend_clinician_review) html.push(`<span class="tag warn">Clinician review</span>`);
   (n.data_quality_flags || []).forEach((f) => html.push(`<span class="tag warn">${esc(f.split(":")[0].split(";")[0])}</span>`));
