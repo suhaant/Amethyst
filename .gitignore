@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# generated (re-create with run_all.sh)
+data/
+models/
+demo_dataset/
+*.xlsx
+*.log
