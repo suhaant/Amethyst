@@ -1,0 +1,10 @@
+{
+  "patient_id": "patient-001",
+  "timestamp": "2026-10-03T14:00:00Z",
+  "glycemic_variability_cv_pct": 31.5,
+  "wound_skin_temp_c": 35.4,
+  "reference_skin_temp_c": 33.1,
+  "heart_rate_bpm": 94,
+  "ph": 7.3,
+  "moisture_pct": 68
+}

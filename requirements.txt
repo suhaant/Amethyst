@@ -1,0 +1,5 @@
+anthropic>=0.109,<1
+pydantic>=2
+python-dotenv
+pytest
+# joblib  # uncomment once the real model is a joblib/sklearn file
