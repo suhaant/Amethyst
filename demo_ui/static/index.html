@@ -79,26 +79,8 @@ h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
 .step.warn { border-top-color: var(--warning); }
 .arrow { text-align: center; color: var(--faint); padding-top: 14px; font-size: 13px; }
 
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; margin-top: 36px; border-top: 1px solid var(--line); }
-.grid2 > div { padding: 22px 0 0; min-width: 0; }
-.grid2 > div:first-child { padding-right: 32px; border-right: 1px solid var(--line); }
-.grid2 > div:last-child { padding-left: 32px; }
-.risk { display: flex; align-items: baseline; gap: 14px; margin-top: 6px; }
-.risk .n { font-size: 56px; font-weight: 600; letter-spacing: -.04em; line-height: 1; }
-.risk .of { color: var(--faint); font-size: 15px; margin-left: -8px; }
-.lvl { font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
-.lvl::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.l-normal { color: var(--normal); } .l-warning { color: var(--warning); } .l-infection { color: var(--infection); } .l-fault, .l-idle { color: var(--fault); }
-.tier { color: var(--muted); font-size: 13px; margin-top: 4px; }
-#chart { width: 100%; height: 110px; display: block; margin-top: 18px; }
-.therapy { margin-top: 16px; font-size: 13px; color: var(--muted); }
-.therapy b { color: var(--ink); font-weight: 500; }
-.say { font-size: 16px; line-height: 1.5; margin: 6px 0 0; }
-.say.idle { color: var(--faint); }
-.say a { color: var(--brand); text-decoration: none; font-size: 13px; }
-.meta { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
-.meta .w { color: var(--warning); }
-.drv { margin-top: 20px; }
+.sig { margin-top: 36px; border-top: 1px solid var(--line); padding-top: 18px; }
+.drv { margin-top: 14px; }
 .drv .r { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; font-size: 12.5px; color: var(--muted); padding: 3px 0; }
 .drv .t { position: relative; height: 6px; background: var(--soft); border-radius: 3px; }
 .drv .t b { position: absolute; top: 0; height: 100%; border-radius: 3px; transition: all .4s ease; }
@@ -158,20 +140,9 @@ h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
         <div class="step" id="p-mobile"><div class="nm">App</div><div class="sb">Expo Go</div><div class="st" id="s-mobile"></div></div>
       </div>
 
-      <div class="grid2">
-        <div>
-          <div class="label">Infection risk</div>
-          <div class="risk"><span class="n" id="riskN">–</span><span class="of">/100</span><span class="lvl l-idle" id="lvl">Baseline</span></div>
-          <div class="tier" id="tier">First 24 h set this patient's baseline</div>
-          <svg id="chart" viewBox="0 0 400 110" preserveAspectRatio="none"></svg>
-          <div class="therapy" id="therapy">Therapy: <b>none</b></div>
-        </div>
-        <div>
-          <div class="label" id="agentLabel">Assessment</div>
-          <p class="say idle" id="say">Send a reading.</p>
-          <div class="meta" id="meta"></div>
-          <div class="drv"><div id="drv"></div><div class="ax"><span>normal</span><span>infection</span></div></div>
-        </div>
+      <div class="sig">
+        <div class="label">What the model is weighing</div>
+        <div class="drv"><div id="drv"></div><div class="ax"><span>toward normal</span><span>toward infection</span></div></div>
       </div>
 
       <div class="log"><div class="label">Log</div><ol id="log"></ol></div>
@@ -183,10 +154,9 @@ h2 { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
 const $ = (s) => document.querySelector(s);
 const ORDER = ["ph", "temp_c", "impedance_kohm", "blood_glucose_mgdl", "wound_glucose_mM"];
 const ZC = { normal: "var(--z-normal)", warning: "var(--z-warning)", infection: "var(--z-infection)" };
-const WORD = { normal: "Normal", warning: "Warning", infection: "Infection", fault: "Check patch", idle: "Baseline" };
 const HOLD = [0.5, 2, 4, 6, 12, 24];
 const DP = { ph: 2, temp_c: 1, impedance_kohm: 1, blood_glucose_mgdl: 0, wound_glucose_mM: 2 };
-let CFG, P, hold = 6, useAgent = false, busy = false, series = [];
+let CFG, P, hold = 6, useAgent = false, busy = false;
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -241,10 +211,7 @@ function mark(k) {
 async function reset() {
   if (busy) return;
   const c = await (await fetch("/api/reset", { method: "POST" })).json();
-  setPatient(c); series = []; chart(); $("#log").innerHTML = ""; $("#clock").textContent = "hour 24";
-  setLevel("idle"); $("#riskN").textContent = "–"; $("#tier").textContent = "First 24 h set this patient's baseline";
-  $("#therapy").innerHTML = "Therapy: <b>none</b>"; $("#say").textContent = "Send a reading."; $("#say").className = "say idle";
-  $("#meta").innerHTML = ""; $("#agentLabel").textContent = "Assessment"; drivers([]);
+  setPatient(c); $("#log").innerHTML = ""; $("#clock").textContent = "hour 24"; drivers([]);
   ["hardware", "agent", "ml", "mobile"].forEach((n) => { step(n, ""); $(`#s-${n}`).textContent = ""; });
 }
 
@@ -285,45 +252,10 @@ function status(ev) {
   return ev.status === "active" ? "working" : "done";
 }
 
-function setLevel(lvl) { const el = $("#lvl"); el.className = `lvl l-${lvl}`; el.textContent = WORD[lvl]; }
 function handle(ev) {
   const d = ev.data || {};
-  if (d.prediction) {
-    const p = d.prediction;
-    $("#riskN").textContent = Math.round(p.risk_score);
-    setLevel(d.level);
-    $("#tier").textContent = `${p.tier.split(" ").slice(1).join(" ")} tier · p = ${p.p_infected.toFixed(2)}`;
-  }
   if (d.drivers) drivers(d.drivers);
-  if (d.notes) notes(d.notes, d.source);
-  if (d.plan) $("#therapy").innerHTML = `Therapy: <b>${esc(therapy(d.plan))}</b>`;
-  if (d.state) {
-    series = d.state.risk_series; chart();
-    setLevel(d.state.level);
-    $("#clock").textContent = `hour ${d.state.hours.toFixed(1).replace(/\.0$/, "")}`;
-  }
-}
-function therapy(p) {
-  if (p.skipped_reason) return "paused, patch off skin";
-  const a = [];
-  if (p.us_40khz_min) a.push(`40 kHz ultrasound ${p.us_40khz_min} min`);
-  if (p.led_405nm_min) a.push(`405 nm LED ${p.led_405nm_min} min`);
-  if (p.us_1p5mhz_min) a.push(`1.5 MHz healing ultrasound ${p.us_1p5mhz_min} min`);
-  return a.join(", then ") || "none";
-}
-function notes(n, source) {
-  $("#agentLabel").textContent = source === "opus" ? "Assessment · Claude Opus" : "Assessment · offline rules";
-  const full = String(n.summary || ""), first = (full.match(/^.*?[.!?](\s|$)/) || [full])[0].trim();
-  $("#say").className = "say";
-  if (first.length < full.length) {
-    $("#say").innerHTML = `${esc(first)} <a href="#" id="more">more</a>`;
-    $("#more").onclick = (e) => { e.preventDefault(); $("#say").textContent = full; };
-  } else $("#say").textContent = full;
-  const m = [`Confidence ${esc(n.confidence)}`];
-  if (n.recommend_clinician_review) m.push(`<span class="w">Clinician review</span>`);
-  const fl = n.data_quality_flags || [];
-  if (fl.length) m.push(`<span class="w" title="${esc(fl.join("\n\n"))}" style="cursor:help;border-bottom:1px dotted">${fl.length} data issue${fl.length > 1 ? "s" : ""}</span>`);
-  $("#meta").innerHTML = m.join(" · ");
+  if (d.state) $("#clock").textContent = `hour ${d.state.hours.toFixed(1).replace(/\.0$/, "")}`;
 }
 function drivers(ds) {
   const names = ["pH", "Temperature", "Moisture", "Wound glucose", "Blood glucose"];
@@ -335,19 +267,6 @@ function drivers(ds) {
     return `<div class="r"><span>${n}</span><div class="t"><b style="${s}"></b></div></div>`;
   }).join("");
 }
-function chart() {
-  const W = 400, H = 110, svg = $("#chart"), x0 = 24, x1 = Math.max(48, ...series.map((p) => p.hour));
-  const X = (h) => ((h - x0) / (x1 - x0)) * W, Y = (r) => 4 + (1 - r / 100) * (H - 8);
-  let g = `<rect x="0" y="${Y(100)}" width="${W}" height="${Y(55) - Y(100)}" fill="#FBF1F2"/>`
-        + `<rect x="0" y="${Y(55)}" width="${W}" height="${Y(30) - Y(55)}" fill="#FDF7EE"/>`
-        + `<line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#EAEAEE" vector-effect="non-scaling-stroke"/>`;
-  if (series.length) {
-    const d = series.map((p, i) => `${i ? "L" : "M"}${X(p.hour).toFixed(1)},${Y(p.risk_score).toFixed(1)}`).join(" ");
-    g += `<path d="${d}" fill="none" stroke="#0A0A0B" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
-  }
-  svg.innerHTML = g;
-}
-
 async function send() {
   if (busy) return;
   const body = { advance_hours: hold, use_agent: useAgent };
@@ -371,7 +290,7 @@ async function send() {
   } catch (e) { $("#err").textContent = "Server error: " + e.message; }
   busy = false; $("#send").disabled = false; $("#send").textContent = "Send";
 }
-init(); chart(); drivers([]);
+init(); drivers([]);
 </script>
 </body>
 </html>
