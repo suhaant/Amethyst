@@ -9,3 +9,6 @@ xgboost==3.4.1
 anthropic>=0.109,<1
 python-dotenv
 pytest
+# demo UI
+fastapi
+uvicorn[standard]
