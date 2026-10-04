@@ -1,0 +1,18 @@
+# Downloaded autorouter (64 MB); build.sh fetches it
+kicad/tools/
+
+# Router exchange files and logs
+*.dsn
+*.ses
+route.log
+
+# KiCad local state and backups
+*.kicad_prl
+*-backups/
+fp-info-cache
+~*.lck
+
+__pycache__/
+.DS_Store
+experiments/out/layouts/
+.history/
