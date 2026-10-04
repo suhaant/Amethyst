@@ -35,7 +35,7 @@ type ServerState = {
     sessions_per_day: number;
   };
   notes?: { summary: string };
-  notes_source?: 'opus' | 'offline';
+  notes_source?: string; // 'openrouter' | 'gemini' | 'claude' | 'rules'
   risk_series?: { hour: number; risk_score: number }[];
   history?: ({ hour: number } & Reading)[];
 };
@@ -53,7 +53,7 @@ export type Live = {
   headline: string;
   alertTitle: string;
   summary: string;
-  source: 'opus' | 'offline' | null;
+  source: string | null; // which agent wrote the summary: 'rules' = offline
   score: number;
   score6hAgo: number | null;
   updatedAgo: string;

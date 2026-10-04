@@ -45,7 +45,9 @@ export function AlertScreen({ go }: { go: (r: Route) => void }) {
         <StatusPill risk={r.risk} label={r.label} />
         <Text style={type.title}>{r.title}</Text>
         <Text style={type.body}>{r.body}</Text>
-        {live.source === 'opus' && <Text style={type.reading}>Assessed by Claude with the Amethyst risk model</Text>}
+        {live.source && live.source !== 'rules' && (
+          <Text style={type.reading}>{`Assessed by ${live.source === 'claude' ? 'Claude' : 'Gemini'} with the Amethyst risk model`}</Text>
+        )}
       </View>
 
       <Card tint="raised" style={{ gap: 12 }}>
