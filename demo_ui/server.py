@@ -130,7 +130,7 @@ def presets(base: dict) -> dict:
     healthy = shift(0)
     return {
         "Healthy": {"values": healthy, "hours": 6, "expect": "normal"},
-        "Early infection": {"values": shift(0.45), "hours": 4, "expect": "warning"},
+        "Early infection": {"values": shift(0.45), "hours": 12, "expect": "warning"},
         "Infection": {"values": shift(1.0), "hours": 6, "expect": "infection"},
         "Patch lifted": {"values": {**healthy, "impedance_kohm": 450.0, "temp_c": round(base["temp_c"] - 5, 1)},
                          "hours": 0.5, "expect": "fault"},

@@ -6,13 +6,20 @@ Input: one or more wounds' readings in time order (every 30 min), with columns
     blood_glucose_mgdl, wound_glucose_mM
 
 Output per reading:
-    p_infected   model probability of warning or infection (0-1)
-    risk_score   3-hour smoothed risk (0-100)
+    p_infected   model probability of warning or infection (0-1): how LIKELY infection is
+    severity     how far the patch signals have moved toward a full infection (0-1)
+    risk_score   3-hour smoothed p_infected x severity (0-100)
     tier         0 monitor / 1 watch / 2 treat / 3 intensive
 plus the LED / ultrasound plan for the latest reading.
 
 The first 24 h of each wound are used to learn that patient's baseline, so
 no risk is returned for them.
+
+Why likelihood x severity: trained on cleanly separated simulated data, the
+classifier is near-certain (p ~ 1) for ANY sustained shift, even 15% of a full
+infection, so p alone only says "something is off" and the score pinned at 0 or
+100. Severity scales it by how strong the infection signs are, so a small shift
+gives a low/moderate risk and a full-blown infection a high one.
 
 Command line:
     python predict.py readings.csv            # flat CSV, one row per reading
@@ -38,6 +45,30 @@ from risk_to_dose import TIERS, session_plan, smooth_risk, tiers_with_hysteresis
 from train_model import add_features
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+# Mean change from baseline in a full infection, from generate_data.P (the simulator the
+# model was trained on): pH +0.65, temperature +1.6 °C, impedance -35 %, wound glucose -40 %.
+FULL_EFFECT = {"ph": 0.65, "temp_c": 1.6, "log_z": -np.log(1 - 0.35), "wound_glucose_rel": 0.40}
+
+
+def infection_severity(feats, step_h):
+    """0-1: how far the patch signals have moved, against the patient's own day-1
+    baseline, toward a full infection. Mean of the 3 strongest of 4 signs, since not
+    every infection shows every sign (pH fails to rise in some). Uses a 2 h median
+    (knocks out shower / dressing spikes but reacts faster than the model's 6 h one)."""
+    w2 = max(1, int(round(2 / step_h)))
+    cols = []
+    for c, sign, scale in [("ph", 1, FULL_EFFECT["ph"]), ("temp_c", 1, FULL_EFFECT["temp_c"]),
+                           ("log_z", -1, FULL_EFFECT["log_z"]), ("wound_glucose_mM", -1, None)]:
+        base = feats[f"{c}_sm"] - feats[f"{c}_vs_base"]          # day-1 baseline per row
+        now = feats.groupby("wound_id")[c].transform(lambda s: s.rolling(w2, min_periods=1).median())
+        delta = sign * (now - base)
+        cols.append(delta / (scale if scale else base.clip(lower=0.1) * FULL_EFFECT["wound_glucose_rel"]))
+    parts = np.clip(np.nan_to_num(np.column_stack(cols)), 0, 1.25)
+    top3 = np.sort(parts, axis=1)[:, 1:]
+    return np.clip(top3.mean(axis=1), 0, 1)
+
+
 SENSORS = ["ph", "temp_c", "impedance_kohm", "blood_glucose_mgdl", "wound_glucose_mM"]
 
 
@@ -75,16 +106,17 @@ class WoundRiskModel:
         i_w, i_i = self.labels.index("warning"), self.labels.index("infection")
         feats["p_infected"] = np.clip(proba[:, i_w] + proba[:, i_i], 0, 1).round(4)
         feats["predicted_label"] = np.array(self.labels)[proba.argmax(1)]
+        feats["severity"] = infection_severity(feats, self.step_h).round(3)
 
         out = []
         for _, g in feats.groupby("wound_id", sort=False):
             g = g.copy()
-            g["risk_score"] = smooth_risk(g["p_infected"].values, self.step_h).round(1)
+            g["risk_score"] = smooth_risk((g["p_infected"] * g["severity"]).values, self.step_h).round(1)
             g["tier"] = tiers_with_hysteresis(g["risk_score"].values)
             g["tier_name"] = [TIERS[t][0] for t in g["tier"]]
             out.append(g)
         keep = ["wound_id"] + (["timestamp"] if "timestamp" in df.columns else []) + \
-               ["hour", "p_infected", "predicted_label", "risk_score", "tier", "tier_name", "impedance_kohm"]
+               ["hour", "p_infected", "severity", "predicted_label", "risk_score", "tier", "tier_name", "impedance_kohm"]
         return pd.concat(out, ignore_index=True)[keep]
 
     @staticmethod

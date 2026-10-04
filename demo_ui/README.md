@@ -15,13 +15,15 @@ python demo_ui/server.py --offline  # never call Claude
 - **Advance time**: each reading is streamed into the patch history over 30 min to 24 h
   (the model scores trends, so time has to pass). The first 24 h are a healthy baseline.
 - **Agent**: `wound_agent.run_assessment` (an LLM with the model and dosing as tools)
-  writes the assessment. With `GEMINI_API_KEY` in `.env` it uses Gemini 3.1 Pro with high
-  thinking (~40 s): it calls the three tools one at a time, writes its notes, and the notes
-  are fact-checked in code against the tool results (risk score, tier, lifted patch,
-  clinician review) with one correction round if anything is off. `GEMINI_THINKING=low`
-  is ~10 s faster but less careful. `OPENROUTER_API_KEY` uses Gemini Flash through
-  OpenRouter and `ANTHROPIC_API_KEY` uses Claude Opus; `AGENT_PROVIDER=gemini|openrouter|claude`
-  picks one. Without a key, the same model and dosing run and a rule-based summary stands in.
+  writes the assessment. With `GEMINI_API_KEY` in `.env` it uses Gemini 3.8 Flash with low
+  thinking: ~2 requests, ~5 s and ~$0.005 per assessment. Its notes are fact-checked in code
+  against the tool results (risk score, tier, lifted patch, clinician review), with one
+  correction round only if something is off. For maximum care at several times the cost:
+  `GEMINI_MODEL=gemini-3.1-pro-preview` and `GEMINI_THINKING=high` (~40 s).
+  `OPENROUTER_API_KEY` uses Gemini through OpenRouter and `ANTHROPIC_API_KEY` uses Claude Opus;
+  `AGENT_PROVIDER=gemini|openrouter|claude` picks one. Without a key, the same model and
+  dosing run and a rule-based summary stands in. Readings sent to `POST /api/readings` skip
+  the LLM unless they set `"use_agent": true`.
 - **App**: `GET /api/state` returns the latest risk, tier, therapy plan and agent notes for
   the Expo app to poll.
 - **Reset** (header button) starts a new patient.

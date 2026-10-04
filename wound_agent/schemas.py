@@ -28,7 +28,8 @@ class SensorReading(BaseModel):
 
 
 class InfectionPrediction(BaseModel):
-    p_infected: float = Field(ge=0.0, le=1.0, description="P(warning) + P(infection), latest reading.")
+    p_infected: float = Field(ge=0.0, le=1.0, description="P(warning) + P(infection), latest reading: how likely.")
+    severity: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="How far the patch signals have moved toward a full infection (0-1): how bad.")
     predicted_label: str
     risk_score: float = Field(description="3 h smoothed risk, 0-100.")
     risk_score_6h_ago: Optional[float] = None

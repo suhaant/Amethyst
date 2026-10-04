@@ -1,8 +1,10 @@
 """LLM agent (Gemini or Claude) that assesses a wound's sensor history for infection.
 
 Provider, first key found wins (or force with AGENT_PROVIDER=openrouter|gemini|claude):
-  GEMINI_API_KEY      Gemini direct from Google: Gemini 3.1 Pro with high thinking, then a
-                      fact check of the notes against the tool results (GEMINI_MODEL overrides)
+  GEMINI_API_KEY      Gemini direct from Google: Gemini 3.8 Flash, low thinking, ~3 requests per
+                      assessment, then a code fact check of the notes against the tool results.
+                      For maximum care at ~5x the cost: GEMINI_MODEL=gemini-3.1-pro-preview,
+                      GEMINI_THINKING=high
   OPENROUTER_API_KEY  Gemini through OpenRouter (OPENROUTER_MODEL, default google/gemini-3.8-flash)
   ANTHROPIC_API_KEY   Claude Opus
 
@@ -39,9 +41,9 @@ from .schemas import (
 
 MODEL = "claude-opus-5-5"
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3.8-flash")
-# Best model first; the others only if it's unavailable (overloaded, quota, outage).
-GEMINI_MODELS = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-3.1-pro-preview", "gemini-pro-latest",
-                             "gemini-3.8-flash"] if m]
+# Cost-conscious default; the others only if it's unavailable (overloaded, quota, outage).
+GEMINI_MODELS = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-3.8-flash", "gemini-3.5-flash"] if m]
+GEMINI_USAGE = {"input": 0, "output": 0, "requests": 0}  # running token count, for cost checks
 
 
 def provider() -> str | None:
@@ -103,6 +105,11 @@ Context:
   artifacts or meal spikes, or when strong signals point the other way. Don't lower
   it just because one sign is missing.
 - Impedance above 150 kΩ means the patch is off the skin; treatment is skipped then.
+- The risk score is likelihood x severity, smoothed over ~3 h: p_infected is the model's
+  probability that the pattern is infection (it is near-certain for any sustained shift),
+  and severity (0-1) is how far pH, temperature, moisture and wound glucose have moved from
+  the patient's baseline toward a full infection. So high p with low severity means a real
+  but mild change; explain the score in those terms.
 - Risk tiers: 0 monitor, 1 watch (enter at >=30), 2 treat (>=55), 3 intensive (>=80).
   Tiers have 10-point hysteresis: a tier is entered at its threshold but only left when
   the risk falls 10 points below it (e.g. watch holds until risk < 20). A risk score
@@ -349,7 +356,7 @@ def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
 
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     by_name = {t.__name__: t for t in tools}
-    level = os.environ.get("GEMINI_THINKING", "high").upper()  # low | medium | high
+    level = os.environ.get("GEMINI_THINKING", "low").upper()  # low | medium | high
     thinking = types.ThinkingConfig(thinking_level=getattr(types.ThinkingLevel, level, types.ThinkingLevel.HIGH))
     tool_config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT, tools=tools, thinking_config=thinking,
@@ -361,7 +368,13 @@ def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
     def generate(model_name: str, contents: list, config):
         for attempt in range(3):
             try:
-                return client.models.generate_content(model=model_name, contents=contents, config=config)
+                resp = client.models.generate_content(model=model_name, contents=contents, config=config)
+                u = resp.usage_metadata
+                if u:
+                    GEMINI_USAGE["input"] += u.prompt_token_count or 0
+                    GEMINI_USAGE["output"] += (u.candidates_token_count or 0) + (u.thoughts_token_count or 0)
+                GEMINI_USAGE["requests"] += 1
+                return resp
             except errors.APIError as exc:
                 if exc.code in (429, 500, 503) and attempt < 2:
                     time.sleep(2 * (attempt + 1))
@@ -376,7 +389,9 @@ def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
 
     last_error: Exception | None = None
     for model_name in GEMINI_MODELS:
-        contents: list = [types.Content(role="user", parts=[types.Part(text=f"Assess wound {wound_id}.")])]
+        contents: list = [types.Content(role="user", parts=[types.Part(text=(
+            f"Assess wound {wound_id}. Request get_sensor_history, predict_infection and "
+            "plan_treatment together in one turn, in that order."))])]
         results: dict[str, dict] = {}
         try:
             for _ in range(8):  # tool turns
@@ -397,6 +412,8 @@ def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
                         out = {"error": str(exc)}
                     parts.append(types.Part.from_function_response(name=call.name, response=out))
                 contents.append(types.Content(role="user", parts=parts))
+                if len(results) == len(by_name):
+                    break
             missing = [t for t in by_name if t not in results]
             if missing:
                 raise RuntimeError(f"{model_name} stopped without calling {missing}")

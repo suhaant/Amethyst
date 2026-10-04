@@ -30,6 +30,7 @@ class RiskModel:
 
         prediction = InfectionPrediction(
             p_infected=float(last["p_infected"]),
+            severity=float(last["severity"]),
             predicted_label=str(last["predicted_label"]),
             risk_score=float(last["risk_score"]),
             risk_score_6h_ago=risk_ago(6),
