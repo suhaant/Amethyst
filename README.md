@@ -200,7 +200,7 @@ cd firmware && make test && make arm-check
 cd hardware/kicad && ./build.sh              # about 6 min with autorouting; --no-route for seconds
 ```
 
-**Databricks care record:**
+**Databricks care record** (landing from the `databricks` branch; design in [`docs/superpowers/specs/`](docs/superpowers/specs/)):
 
 ```bash
 python main.py --databricks                  # readings + assessments to Databricks, care-team dashboard
