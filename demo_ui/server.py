@@ -3,14 +3,14 @@
 The presenter types patch readings (no hardware yet); each submission runs the real
 pipeline and streams every step to the browser:
 
-    patch reading -> Opus agent -> XGBoost model -> treatment plan -> mobile app
+    patch reading -> LLM agent (Gemini or Claude) -> XGBoost model -> treatment plan -> mobile app
 
 Run:
     python demo_ui/server.py            # http://localhost:8000, and on the LAN for the phone app
     python demo_ui/server.py --offline  # never call the LLM (no API key needed)
 
-With ANTHROPIC_API_KEY set (in .env), the agent step runs wound_agent.run_assessment
-(Claude Opus with the model and dosing as tools). Without it, the same model and
+With GEMINI_API_KEY (or ANTHROPIC_API_KEY) set in .env, the agent step runs
+wound_agent.run_assessment (the LLM with the model and dosing as tools). Without it, the same model and
 dosing run and a rule-based summary stands in for the agent's notes.
 """
 
@@ -42,7 +42,7 @@ from generate_data import P as SIM  # noqa: E402
 from predict import WoundRiskModel  # noqa: E402
 from risk_to_dose import LIFTED_KOHM  # noqa: E402
 from train_model import add_features  # noqa: E402
-from wound_agent.agent import AgentRefusedError, run_assessment, summarize_history  # noqa: E402
+from wound_agent.agent import AgentRefusedError, provider, provider_label, run_assessment, summarize_history  # noqa: E402
 from wound_agent.model import RiskModel  # noqa: E402
 from wound_agent.schemas import SENSOR_COLUMNS  # noqa: E402
 
@@ -239,7 +239,7 @@ def sensor_drivers(model: WoundRiskModel, history: pd.DataFrame) -> list[dict]:
 
 
 def offline_notes(summary: dict, pred: dict, plan: dict) -> dict:
-    """Rule-based stand-in for the Opus agent's notes (used when no API key is set).
+    """Rule-based stand-in for the LLM agent's notes (used when no API key is set).
     Uses the same thresholds as the input colours."""
     s = summary["sensors"]
     base = {k: s[k]["day1_baseline_median"] for k in s}
@@ -297,7 +297,7 @@ class PatchReading(BaseModel):
     blood_glucose_mgdl: float = Field(description="Blood glucose from CGM, mg/dL")
     wound_glucose_mM: float = Field(description="Wound-fluid glucose, mM")
     advance_hours: float = Field(0.5, ge=0.5, le=48, description="How long these values held; the patch sends every 30 min")
-    use_agent: bool = Field(False, description="Run the Claude Opus agent (slower, uses the API key) instead of offline rules")
+    use_agent: bool = Field(False, description="Run the LLM agent (slower, uses the API key) instead of offline rules")
 
 
 def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
@@ -323,15 +323,16 @@ def run_pipeline(wound: Wound, reading: Reading, use_llm: bool, emit) -> dict:
         model = RiskModel()
         notes, source = None, "rules"
         if use_llm:
-            emit("agent", "active", "Opus reasoning", "")
+            name = provider_label()
+            emit("agent", "active", f"{name} reasoning", "")
             try:
                 t0 = time.time()
                 a = run_assessment(WOUND_ID, EventSource(wound, emit), EventModel(emit))
                 pred, plan = a.prediction.model_dump(), a.treatment.model_dump()
-                notes, source = (a.agent_notes.model_dump() if a.agent_notes else None), "opus"
-                emit("agent", "done", f"Opus done · {time.time() - t0:.0f} s", "")
+                notes, source = (a.agent_notes.model_dump() if a.agent_notes else None), provider()
+                emit("agent", "done", f"{name} done · {time.time() - t0:.0f} s", "")
             except (AgentRefusedError, Exception) as exc:  # fall back so the demo never stalls
-                emit("agent", "warn", "Opus unavailable · offline", str(exc)[:120])
+                emit("agent", "warn", f"{name} unavailable · offline", str(exc)[:120])
                 use_llm = False
         if not use_llm:
             emit("ml", "active", "XGBoost scoring", "27 trend features")
@@ -440,8 +441,8 @@ def index():
 
 @app.get("/api/config")
 def config():
-    llm = (not OFFLINE) and bool(os.environ.get("ANTHROPIC_API_KEY"))
-    return {"ranges": RANGES, "llm_available": llm, **patient_config()}
+    llm = (not OFFLINE) and provider() is not None
+    return {"ranges": RANGES, "llm_available": llm, "llm_name": provider_label(), **patient_config()}
 
 
 def patient_config() -> dict:
@@ -468,7 +469,7 @@ def reset():
 
 def run_guarded(r: Reading | PatchReading, emit) -> dict | None:
     global RUNNING
-    use_llm = r.use_agent and not OFFLINE and bool(os.environ.get("ANTHROPIC_API_KEY"))
+    use_llm = r.use_agent and not OFFLINE and provider() is not None
     RUNNING = True
     try:
         return run_pipeline(WOUND, r, use_llm, emit)

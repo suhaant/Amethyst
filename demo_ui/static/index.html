@@ -205,9 +205,9 @@ async function init() {
 function setHold(h) { hold = h; [...$("#hold").children].forEach((b) => b.classList.toggle("on", +b.dataset.h === h)); }
 function agentLabel() {
   const live = useAgent && CFG.llm_available;
-  $("#agentName").textContent = live ? "Claude Opus" : "offline";
-  $("#agentSub").textContent = live ? "Claude Opus" : "offline rules";
-  $("#agentBtn").title = CFG.llm_available ? "Switch agent" : "Add ANTHROPIC_API_KEY to .env";
+  $("#agentName").textContent = live ? CFG.llm_name : "offline";
+  $("#agentSub").textContent = live ? CFG.llm_name : "offline rules";
+  $("#agentBtn").title = CFG.llm_available ? "Switch agent" : "Add GEMINI_API_KEY to .env";
 }
 
 // zones and presets come from the server: same thresholds the model and agent use
@@ -267,7 +267,7 @@ function narrate(ev) {
   $("#now").className = `now${warn ? " warn" : ""}`;
   $("#nowWho").textContent = WHO[ev.stage] || ev.stage;
   $("#nowWhat").innerHTML = `${esc(ev.title.replace(/^Tool · /, "Calling "))}${ev.detail ? `<span>${esc(ev.detail)}</span>` : ""}`;
-  $("#nowWhat").classList.toggle("thinking", ev.title === "Opus reasoning");
+  $("#nowWhat").classList.toggle("thinking", / reasoning$/.test(ev.title));
 }
 let queue = [], draining = false, thinking = null;
 
@@ -278,7 +278,7 @@ function log(ev) {
   const src = ev.origin === "api" && ev.stage === "hardware" && ev.status === "active" ? `<span class="src">API</span>` : "";
   li.innerHTML = `<span class="t">${ev.t.toFixed(1)}s</span><span class="s">${ev.stage}</span><span class="x">${src}${esc(ev.title)}${ev.detail ? `<span>${esc(ev.detail)}</span>` : ""}</span>`;
   $("#log").appendChild(li);
-  if (ev.title === "Opus reasoning") {
+  if (/ reasoning$/.test(ev.title)) {
     thinking = document.createElement("li");
     thinking.innerHTML = `<span class="t"></span><span class="s">agent</span><span class="x thinking" style="color:var(--brand-deep)">thinking</span>`;
     $("#log").appendChild(thinking);

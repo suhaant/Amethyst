@@ -1,4 +1,9 @@
-"""Claude Opus agent that assesses a wound's sensor history for infection.
+"""LLM agent (Gemini or Claude) that assesses a wound's sensor history for infection.
+
+Provider, first key found wins (or force with AGENT_PROVIDER=openrouter|gemini|claude):
+  OPENROUTER_API_KEY  Gemini through OpenRouter (OPENROUTER_MODEL, default google/gemini-3.8-flash)
+  GEMINI_API_KEY      Gemini direct from Google (free tier: ~5 requests/min per model)
+  ANTHROPIC_API_KEY   Claude Opus
 
 The agent gathers data and reasons about it through tools; it never produces the
 risk score or the dose itself. Those come from Adam's XGBoost model and
@@ -10,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import warnings
 
 import anthropic
@@ -30,6 +36,27 @@ from .schemas import (
 )
 
 MODEL = "claude-opus-5-5"
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3.8-flash")
+# Free-tier Gemini models, tried in order when one is overloaded or rate-limited.
+GEMINI_MODELS = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-3.5-flash", "gemini-3.8-flash"] if m]
+
+
+def provider() -> str | None:
+    """Which LLM the agent uses, or None when no key is set."""
+    choice = os.environ.get("AGENT_PROVIDER", "").lower()
+    if choice in ("openrouter", "gemini", "claude"):
+        return choice
+    if os.environ.get("OPENROUTER_API_KEY"):
+        return "openrouter"
+    if os.environ.get("GEMINI_API_KEY"):
+        return "gemini"
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "claude"
+    return None
+
+
+def provider_label() -> str:
+    return {"openrouter": "Gemini", "gemini": "Gemini", "claude": "Claude Opus"}.get(provider() or "", "offline")
 
 # In anthropic 0.x only `output_format` accepts a Pydantic class (it's merged into
 # output_config.format under the hood), so silence its deprecation notice.
@@ -77,9 +104,9 @@ Context:
   Tiers have 10-point hysteresis: a tier is entered at its threshold but only left when
   the risk falls 10 points below it (e.g. watch holds until risk < 20). A risk score
   below the tier's entry threshold is therefore expected, not an error.
-- The 405 nm LED dose scales with risk from 30 to 90, so it is zero below 30. Any
-  session without LED gets 1.5 MHz healing ultrasound instead (monitor tier, and watch
-  tier while risk is under 30). Treat and above add 40 kHz ultrasound before the LED.
+- Antibacterial therapy starts in the treat tier: 40 kHz ultrasound, then the 405 nm
+  LED, both scaling with risk. Monitor and watch tiers get 1.5 MHz healing ultrasound
+  only; watch means closer monitoring, not treatment.
 Standing caveats (simulated training data, prototype doses, dummy readings) are
 attached to the result automatically. Don't repeat them in any field."""
 
@@ -162,17 +189,9 @@ def build_caveats(model: RiskModel, data_source: DataSource) -> list[str]:
     return caveats
 
 
-def run_assessment(
-    wound_id: str,
-    data_source: DataSource,
-    model: RiskModel,
-    client: anthropic.Anthropic | None = None,
-    verbose: bool = False,
-) -> Assessment:
-    client = client or make_client()
-    state: dict[str, object] = {}
+def make_tools(data_source: DataSource, model: RiskModel, state: dict) -> list:
+    """The agent's three tools as plain functions (same for every provider)."""
 
-    @beta_tool
     def get_sensor_history(wound_id: str) -> str:
         """Fetch a summary of the wound's patch readings since it was applied: per-sensor
         latest value, last-6h median, day-1 baseline, 24 h change, 24 h range, and the
@@ -185,7 +204,6 @@ def run_assessment(
         state["history"] = history
         return json.dumps(summarize_history(history), default=str)
 
-    @beta_tool
     def predict_infection() -> str:
         """Run the trained infection model over the fetched history and return the latest
         infection probability, 0-100 risk score (with 6 h and 24 h ago for trend), and
@@ -197,7 +215,6 @@ def run_assessment(
         state["prediction"], state["result"] = prediction, result
         return prediction.model_dump_json()
 
-    @beta_tool
     def plan_treatment() -> str:
         """Compute the next 8-hour session's 405 nm LED, 40 kHz ultrasound and 1.5 MHz
         healing ultrasound plan from the risk score. Call after predict_infection."""
@@ -208,6 +225,193 @@ def run_assessment(
         state["treatment"] = plan
         return plan.model_dump_json()
 
+    return [get_sensor_history, predict_infection, plan_treatment]
+
+
+def run_assessment(
+    wound_id: str,
+    data_source: DataSource,
+    model: RiskModel,
+    client: anthropic.Anthropic | None = None,
+    verbose: bool = False,
+) -> Assessment:
+    state: dict[str, object] = {}
+    tools = make_tools(data_source, model, state)
+    if provider() == "openrouter":
+        notes = _run_openrouter(wound_id, tools, verbose)
+    elif provider() == "gemini":
+        notes = _run_gemini(wound_id, tools, verbose)
+    else:
+        notes = _run_claude(wound_id, tools, client or make_client(), verbose)
+
+    missing = [k for k in ("history", "prediction", "treatment") if k not in state]
+    if missing:
+        raise RuntimeError(f"Agent finished without calling tools for: {missing}")
+
+    history, prediction, treatment = state["history"], state["prediction"], state["treatment"]
+    assert isinstance(history, pd.DataFrame)
+    assert isinstance(prediction, InfectionPrediction)
+    assert isinstance(treatment, TreatmentPlan)
+    return build_assessment(wound_id, history, prediction, treatment, model, data_source, notes)
+
+
+# Tool definitions in the OpenAI / OpenRouter format.
+OPENAI_TOOLS = [
+    {"type": "function", "function": {
+        "name": "get_sensor_history",
+        "description": "Fetch a summary of the wound's patch readings since it was applied: per-sensor "
+                       "latest value, last-6h median, day-1 baseline, 24 h change, 24 h range, and the "
+                       "last 6 hours of raw readings.",
+        "parameters": {"type": "object", "properties": {"wound_id": {"type": "string", "description": "The wound's identifier."}},
+                       "required": ["wound_id"]}}},
+    {"type": "function", "function": {
+        "name": "predict_infection",
+        "description": "Run the trained infection model over the fetched history and return the latest "
+                       "infection probability, 0-100 risk score (with 6 h and 24 h ago), and tier. "
+                       "Call after get_sensor_history.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "plan_treatment",
+        "description": "Compute the next 8-hour session's 405 nm LED, 40 kHz ultrasound and 1.5 MHz healing "
+                       "ultrasound plan from the risk score. Call after predict_infection.",
+        "parameters": {"type": "object", "properties": {}}}},
+]
+
+
+def _run_openrouter(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
+    """Gemini through OpenRouter's OpenAI-compatible API: a tool loop, then one request
+    for the notes as JSON matching AgentNotes."""
+    import httpx
+
+    by_name = {t.__name__: t for t in tools}
+    headers = {"Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}",
+               "X-Title": "Amethyst wound patch demo"}
+
+    def chat(messages: list, **extra) -> dict:
+        body = {"model": OPENROUTER_MODEL, "messages": messages, **extra}
+        for attempt in range(3):
+            r = httpx.post("https://openrouter.ai/api/v1/chat/completions", json=body, headers=headers, timeout=120)
+            if r.status_code in (429, 500, 502, 503) and attempt < 2:
+                time.sleep(2 * (attempt + 1))
+                continue
+            if r.status_code != 200:
+                raise RuntimeError(f"OpenRouter {r.status_code}: {r.text[:300]}")
+            data = r.json()
+            if "error" in data:
+                raise RuntimeError(f"OpenRouter error: {data['error']}")
+            return data["choices"][0]["message"]
+        raise AssertionError("unreachable")
+
+    messages: list = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"Assess wound {wound_id}. Call get_sensor_history, then "
+                                    "predict_infection, then plan_treatment."},
+    ]
+    done: set[str] = set()
+    for _ in range(6):  # tool turns
+        msg = chat(messages, tools=OPENAI_TOOLS)
+        calls = msg.get("tool_calls") or []
+        if not calls:
+            break
+        messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
+        for call in calls:
+            name = call["function"]["name"]
+            args = json.loads(call["function"].get("arguments") or "{}")
+            if verbose:
+                print(f"[agent] -> {name}({args})")
+            try:
+                out = by_name[name](**args)
+                done.add(name)
+            except Exception as exc:  # let the model see the error and retry
+                out = json.dumps({"error": str(exc)})
+            messages.append({"role": "tool", "tool_call_id": call["id"], "content": out})
+        if "plan_treatment" in done:
+            break
+
+    messages.append({"role": "user", "content": "Now write your assessment from the tool results."})
+    msg = chat(messages, response_format={"type": "json_schema", "json_schema": {
+        "name": "AgentNotes", "schema": AgentNotes.model_json_schema()}})
+    text = (msg.get("content") or "").strip()
+    if text.startswith("```"):  # tolerate a fenced reply
+        text = text.strip("`").removeprefix("json").strip()
+    return AgentNotes.model_validate_json(text)
+
+
+def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
+    """Gemini, with the tool loop run here rather than by the SDK so each assessment
+    costs as few requests as possible (the free tier allows ~5 per minute per model):
+    the model calls the tools (ideally all three in one turn), then one more request
+    returns the notes as JSON matching AgentNotes."""
+    from google import genai
+    from google.genai import errors, types
+
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    by_name = {t.__name__: t for t in tools}
+    tool_config = types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, tools=tools,
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
+    notes_config = types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT,
+        response_mime_type="application/json", response_schema=AgentNotes)
+
+    def generate(model_name: str, contents: list, config) -> types.GenerateContentResponse:
+        for attempt in range(3):
+            try:
+                return client.models.generate_content(model=model_name, contents=contents, config=config)
+            except errors.APIError as exc:
+                if exc.code in (429, 500, 503) and attempt < 2:
+                    time.sleep(4 * (attempt + 1))  # free-tier limits reset quickly
+                    continue
+                raise
+        raise AssertionError("unreachable")
+
+    last_error: Exception | None = None
+    for model_name in GEMINI_MODELS:
+        contents: list = [types.Content(role="user", parts=[types.Part(text=(
+            f"Assess wound {wound_id}. Call get_sensor_history, predict_infection and "
+            "plan_treatment in that order; you can request all three at once."))])]
+        try:
+            for _ in range(5):  # tool turns
+                resp = generate(model_name, contents, tool_config)
+                calls = resp.function_calls or []
+                if not calls:
+                    break
+                contents.append(resp.candidates[0].content)
+                parts = []
+                for call in calls:
+                    if verbose:
+                        print(f"[agent] -> {call.name}({dict(call.args or {})})")
+                    try:
+                        out = {"result": json.loads(by_name[call.name](**dict(call.args or {})))}
+                    except Exception as exc:  # let the model see the error and retry
+                        out = {"error": str(exc)}
+                    parts.append(types.Part.from_function_response(name=call.name, response=out))
+                contents.append(types.Content(role="user", parts=parts))
+                if _tools_done(contents):
+                    break
+            contents.append(types.Content(role="user", parts=[types.Part(text=(
+                "Now write your assessment from the tool results."))]))
+            reply = generate(model_name, contents, notes_config)
+            if isinstance(reply.parsed, AgentNotes):
+                return reply.parsed
+            return AgentNotes.model_validate_json(reply.text or "")
+        except errors.APIError as exc:
+            if exc.code in (429, 500, 503):  # this model is busy: try the next free one
+                last_error = exc
+                continue
+            raise
+    raise RuntimeError(f"All Gemini models busy or rate-limited: {last_error}")
+
+
+def _tools_done(contents: list) -> bool:
+    """True once plan_treatment has returned a result (the last tool in the chain)."""
+    for c in contents:
+        for part in c.parts or []:
+            fr = part.function_response
+            if fr and fr.name == "plan_treatment" and "result" in (fr.response or {}):
+                return True
+    return False
+
+
+def _run_claude(wound_id: str, tools: list, client: anthropic.Anthropic, verbose: bool) -> AgentNotes:
     runner = client.beta.messages.tool_runner(
         model=MODEL,
         max_tokens=16000,
@@ -215,7 +419,7 @@ def run_assessment(
         thinking={"type": "adaptive"},
         output_config={"effort": "high"},
         output_format=AgentNotes,
-        tools=[get_sensor_history, predict_infection, plan_treatment],
+        tools=[beta_tool(t) for t in tools],
         messages=[{"role": "user", "content": f"Assess wound {wound_id}."}],
         # On a safety-classifier refusal, the API retries on a fallback model automatically.
         betas=["server-side-fallback-2026-07-01"],
@@ -233,18 +437,7 @@ def run_assessment(
     if final is None or final.stop_reason == "refusal":
         details = getattr(final, "stop_details", None)
         raise AgentRefusedError(f"Agent declined the request: {details}")
-
-    missing = [k for k in ("history", "prediction", "treatment") if k not in state]
-    if missing:
-        raise RuntimeError(f"Agent finished without calling tools for: {missing}")
-
-    history, prediction, treatment = state["history"], state["prediction"], state["treatment"]
-    assert isinstance(history, pd.DataFrame)
-    assert isinstance(prediction, InfectionPrediction)
-    assert isinstance(treatment, TreatmentPlan)
-    return build_assessment(
-        wound_id, history, prediction, treatment, model, data_source, final.parsed_output
-    )
+    return final.parsed_output
 
 
 def run_offline(wound_id: str, data_source: DataSource, model: RiskModel) -> Assessment:
