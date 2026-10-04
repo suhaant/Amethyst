@@ -83,11 +83,11 @@ $$600 \text{ wounds} \times 14 \text{ days} \times 48 \text{ readings/day} = 403
 
 $$p = P(\text{warning}) + P(\text{infection})$$
 
-$$s = \text{mean of the 3 largest of } \left\{\frac{\Delta \text{pH}}{0.65},\ \ \frac{\Delta T}{1.6\,^{\circ}\text{C}},\ \ \frac{-\Delta \ln Z}{-\ln 0.65},\ \ \frac{-\Delta g / g_0}{0.40}\right\}$$
+$$s = \text{mean of the 3 largest of } \left\lbrace \frac{\Delta \text{pH}}{0.65},\ \ \frac{\Delta T}{1.6^{\circ}\text{C}},\ \ \frac{-\Delta \ln Z}{-\ln 0.65},\ \ \frac{-\Delta g / g_0}{0.40}\right\rbrace$$
 
 Each Δ is a 2 h median minus the patient's day-1 baseline. The denominators are a full infection's average effect in the simulator: pH +0.65, temperature +1.6 °C, impedance −35%, wound glucose −40%. Each term is clipped to [0, 1.25] and *s* to [0, 1]. Using the top 3 of 4 means a wound whose pH doesn't rise, which happens in real infections, still scores. The score is then smoothed so one noisy reading can't trigger treatment (τ = 3 h, Δt = 0.5 h):
 
-$$R_t = R_{t-1} + \alpha\,(100\,p_t s_t - R_{t-1}), \qquad \alpha = \frac{0.5}{3 + 0.5} \approx 0.143$$
+$$R_t = R_{t-1} + \alpha(100 p_t s_t - R_{t-1}), \qquad \alpha = \frac{0.5}{3 + 0.5} \approx 0.143$$
 
 **Tiers** use 10-point hysteresis: each is entered at its threshold and left only 10 points below it, so the device doesn't flicker.
 
@@ -100,11 +100,11 @@ $$R_t = R_{t-1} + \alpha\,(100\,p_t s_t - R_{t-1}), \qquad \alpha = \frac{0.5}{3
 
 **Light dose** (treat tier and above) at 10 mW/cm², with the 36 J/cm² daily cap split over 3 sessions:
 
-$$x = \text{clip}\!\left(\frac{R - 30}{60}, 0, 1\right), \qquad E = 12x \ \text{J/cm}^2, \qquad t = \frac{E}{0.010 \ \text{W/cm}^2}$$
+$$x = \text{clip}\left(\frac{R - 30}{60}, 0, 1\right), \qquad E = 12x \ \text{J/cm}^2, \qquad t = \frac{E}{0.010 \ \text{W/cm}^2}$$
 
 **Ultrasound** (treat tier and above), run before the light:
 
-$$y = \text{clip}\!\left(\frac{R - 55}{35}, 0, 1\right), \qquad t_{\text{US}} = \max(4,\ 10y) \ \text{min}, \qquad I = 0.1 + 0.4y \ \text{W/cm}^2$$
+$$y = \text{clip}\left(\frac{R - 55}{35}, 0, 1\right), \qquad t_{\text{US}} = \max(4,\ 10y) \ \text{min}, \qquad I = 0.1 + 0.4y \ \text{W/cm}^2$$
 
 | Risk *R* | Light | Ultrasound |
 |---|---|---|
