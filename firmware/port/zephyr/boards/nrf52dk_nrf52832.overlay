@@ -1,0 +1,102 @@
+/* Pin mapping for the PulsePatch board, applied on top of the nRF52 DK definition.
+ * NOT BUILT YET. Pins match hardware/kicad/gen/design.py.
+ * The DK's own LED and button nodes use P0.13..P0.20, which this board uses for other things;
+ * a custom board definition should replace this overlay before real use.
+ */
+#include <zephyr/dt-bindings/adc/nrf-adc.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	zephyr,user {
+		io-channels = <&adc 0>, <&adc 1>, <&adc 2>, <&adc 3>;
+		pwms = <&pwm0 0 PWM_USEC(1000) PWM_POLARITY_NORMAL>,
+		       <&pwm1 0 PWM_NSEC(33333) PWM_POLARITY_NORMAL>,
+		       <&pwm1 1 PWM_NSEC(33333) PWM_POLARITY_INVERTED>,
+		       <&pwm0 1 PWM_USEC(1000) PWM_POLARITY_NORMAL>;
+		pwm-names = "led", "us_a", "us_b", "us_level";
+		moist-drv-gpios = <&gpio0 19 GPIO_ACTIVE_HIGH>;
+		us-en-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;
+		alert-gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
+		button-gpios = <&gpio0 16 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		status-gpios = <&gpio0 17 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&adc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	channel@0 {	/* pH: buffer output (AIN0) minus reference electrode (AIN3) */
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1_2";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+		zephyr,input-positive = <NRF_SAADC_AIN0>;
+		zephyr,input-negative = <NRF_SAADC_AIN3>;
+		zephyr,resolution = <12>;
+		zephyr,oversampling = <4>;
+	};
+	channel@1 {	/* battery through the 1M/1M divider (AIN1) */
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+		zephyr,input-positive = <NRF_SAADC_AIN1>;
+		zephyr,resolution = <12>;
+	};
+	channel@2 {	/* pad ID divider (AIN2) */
+		reg = <2>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+		zephyr,input-positive = <NRF_SAADC_AIN2>;
+		zephyr,resolution = <12>;
+	};
+	channel@3 {	/* moisture divider midpoint (AIN4) */
+		reg = <3>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 40)>;
+		zephyr,input-positive = <NRF_SAADC_AIN4>;
+		zephyr,resolution = <12>;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+	pinctrl-0 = <&i2c0_pulsepatch>;
+	pinctrl-names = "default";
+};
+
+&pwm0 {
+	status = "okay";
+	pinctrl-0 = <&pwm0_pulsepatch>;
+	pinctrl-names = "default";
+};
+
+&pwm1 {
+	status = "okay";
+	pinctrl-0 = <&pwm1_pulsepatch>;
+	pinctrl-names = "default";
+};
+
+&pinctrl {
+	i2c0_pulsepatch: i2c0_pulsepatch {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 26)>, <NRF_PSEL(TWIM_SCL, 0, 27)>;
+		};
+	};
+	pwm0_pulsepatch: pwm0_pulsepatch {
+		group1 {
+			psels = <NRF_PSEL(PWM_OUT0, 0, 11)>,	/* LED dimming */
+				<NRF_PSEL(PWM_OUT1, 0, 20)>;	/* ultrasound strength */
+		};
+	};
+	pwm1_pulsepatch: pwm1_pulsepatch {
+		group1 {
+			psels = <NRF_PSEL(PWM_OUT0, 0, 12)>, <NRF_PSEL(PWM_OUT1, 0, 13)>;	/* H-bridge IN1, IN2 */
+		};
+	};
+};
