@@ -12,7 +12,7 @@ This is for `AmethystFilm`: the 5 s logo intro, then the 40 s demo. The output f
 | 0:00 – 0:05 | Patch glows, the crystal slams together, the "amethyst" logo settles, then slides out right | *(let it play, or)* "We're **Amethyst**." |
 | 0:05 – 0:10 | The arm sweeps in from the left; the patch floats down and sticks | "This is a smart patch that senses, predicts, and **treats** wound infection." |
 | 0:10 – 0:16 | **01 Sense**: pod lights up, reading card | "Every few minutes it takes **one reading of five signals**: pH, moisture, temperature, heart rate, and glucose variability." |
-| 0:16 – 0:27 | **02 Reason**: the agent calls three tools | "That reading goes to our Claude agent. It runs our **infection model** (82 percent here), then **picks a dose**. Last, it **checks its own work**: sensor faults, conflicting signals, and whether a clinician should look." |
+| 0:16 – 0:27 | **02 Reason**: the agent calls three tools | "That reading goes to our Gemini agent. It runs our **infection model** (82 percent here), then **picks a dose**. Last, it **checks its own work**: sensor faults, conflicting signals, and whether a clinician should look." |
 | 0:27 – 0:35 | **03 Alert**: phone shows the warning, risk score, tap | "The app turns that into an alert the patient can act on: a risk score of 82, every signal behind it, and **one tap** to start therapy." |
 | 0:35 – 0:42 | **04 Treat**: countdown, plan, ring moves to the patch, patch glows | "Ultrasound breaks up the biofilm, then **violet light** kills the bacteria. No drugs." |
 | 0:42 – 0:45 | Logo with the therapy screen | "**Amethyst**: caught early, treated on the spot." |

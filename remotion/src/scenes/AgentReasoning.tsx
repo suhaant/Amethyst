@@ -11,7 +11,7 @@ import { land } from "../studio/motion";
 
 // 02 Reason. How the wound agent (WolfHacks agent-reasoning, wound_agent/
 // agent.py) works, exactly as the code does it:
-//   reading -> Claude Opus agent calls get_sensor_reading -> predict_infection
+//   reading -> Gemini agent calls get_sensor_reading -> predict_infection
 //   (infection model -> probability vs threshold) -> plan_treatment (dose band)
 //   -> the agent judges the evidence (its system prompt) -> Assessment.
 // The agent never produces a number; the assessment card only fills in as
@@ -73,7 +73,7 @@ const AgentPanel: React.FC<{ f: number; exit: number }> = ({ f, exit }) => {
         backgroundColor: color.surface,
       }}
     >
-      <RiseText frame={f} lines={["Claude Opus agent"]} start={T.start("agentIn")} duration={fr(30)} style={{ ...text.label, color: color.ink, fontWeight: 600 }} />
+      <RiseText frame={f} lines={["Gemini agent"]} start={T.start("agentIn")} duration={fr(30)} style={{ ...text.label, color: color.ink, fontWeight: 600 }} />
       {/* Accent bar marks the one step being explained. */}
       <div
         style={{
