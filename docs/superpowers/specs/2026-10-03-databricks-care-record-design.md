@@ -1,8 +1,8 @@
 # Databricks care record: design
 
 Date: 2026-10-03
-Branch: `databricks` (off `agent-reasoning`)
-Status: approved in conversation, awaiting written-spec review
+Branch: built on `agent-reasoning`
+Status: implemented 2026-10-04; tested against a fake warehouse only, not yet run against a real workspace
 
 ## Goal
 
@@ -245,8 +245,8 @@ revisit the design.
 
 - Training, experiment tracking or model serving on Databricks.
 - The Amethyst app reading from Databricks.
-- Parsing the firmware's Bluetooth lines. The firmware reports capacitance, not impedance,
-  and no glucose, so it cannot feed the model yet; that is an existing open item.
+- Parsing the firmware's Bluetooth lines. The firmware now reports impedance in the model's
+  units, but no glucose, so it cannot feed the model by itself yet.
 - Replaying readings in real time.
 - Real patient data. Everything stored is simulated, and the workspace must not be used
   for real patient data.

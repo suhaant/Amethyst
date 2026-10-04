@@ -54,6 +54,18 @@ Pass `--history file.csv` (or `.json`) in the format `predict.py` reads: one row
 least 24 h is needed; the first day sets the patient's baseline. For a live feed, add a
 class with `get_history(wound_id)` in `wound_agent/data_sources.py`.
 
+### Databricks care record
+
+Optional. Stores every reading and assessment in Databricks and feeds a care-team dashboard.
+Without `--databricks` nothing changes and no Databricks code is imported.
+
+```bash
+python patch_gateway.py --demo-cohort          # upload five simulated wounds
+python main.py --databricks --all              # assess each from Databricks, save the results back
+```
+
+Setup, tables, dashboard queries and the demo run sheet are in [`databricks/README.md`](databricks/README.md).
+
 ---
 
 # Smart Wound Patch — Infection Detection ML

@@ -9,3 +9,5 @@ xgboost==3.4.1
 anthropic>=0.109,<1
 python-dotenv
 pytest
+# Databricks care record (only imported with --databricks)
+databricks-sdk
