@@ -6,7 +6,7 @@ __pycache__/
 # secrets
 .env
 # generated (re-create with run_all.sh)
-data/
+/data/
 models/
 demo_dataset/
 output/
