@@ -1,8 +1,9 @@
 """LLM agent (Gemini or Claude) that assesses a wound's sensor history for infection.
 
 Provider, first key found wins (or force with AGENT_PROVIDER=openrouter|gemini|claude):
+  GEMINI_API_KEY      Gemini direct from Google (free tier works: ~2 requests per assessment,
+                      ~5 requests/min per model, falls back across free Flash models)
   OPENROUTER_API_KEY  Gemini through OpenRouter (OPENROUTER_MODEL, default google/gemini-3.8-flash)
-  GEMINI_API_KEY      Gemini direct from Google (free tier: ~5 requests/min per model)
   ANTHROPIC_API_KEY   Claude Opus
 
 The agent gathers data and reasons about it through tools; it never produces the
@@ -15,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import warnings
 
@@ -38,7 +40,9 @@ from .schemas import (
 MODEL = "claude-opus-5-5"
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3.8-flash")
 # Free-tier Gemini models, tried in order when one is overloaded or rate-limited.
-GEMINI_MODELS = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-3.5-flash", "gemini-3.8-flash"] if m]
+# Each has its own per-minute quota, so falling back to the next one usually works.
+GEMINI_MODELS = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-3.5-flash", "gemini-3.5-flash-lite",
+                             "gemini-3.8-flash", "gemini-3.1-flash-lite"] if m]
 
 
 def provider() -> str | None:
@@ -46,10 +50,10 @@ def provider() -> str | None:
     choice = os.environ.get("AGENT_PROVIDER", "").lower()
     if choice in ("openrouter", "gemini", "claude"):
         return choice
-    if os.environ.get("OPENROUTER_API_KEY"):
-        return "openrouter"
     if os.environ.get("GEMINI_API_KEY"):
         return "gemini"
+    if os.environ.get("OPENROUTER_API_KEY"):
+        return "openrouter"
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "claude"
     return None
@@ -338,27 +342,29 @@ def _run_openrouter(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
 
 
 def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
-    """Gemini, with the tool loop run here rather than by the SDK so each assessment
-    costs as few requests as possible (the free tier allows ~5 per minute per model):
-    the model calls the tools (ideally all three in one turn), then one more request
-    returns the notes as JSON matching AgentNotes."""
+    """Gemini direct from Google. The tool loop runs here (not the SDK's automatic
+    calling) so an assessment costs ~2 requests: the free tier allows ~5 per minute per
+    model. The model requests the tools (all three at once when it can), then one more
+    request returns the notes as JSON matching AgentNotes."""
     from google import genai
     from google.genai import errors, types
 
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     by_name = {t.__name__: t for t in tools}
-    tool_config = types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT, tools=tools,
+    tool_config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT, tools=tools,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
-    notes_config = types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT,
-        response_mime_type="application/json", response_schema=AgentNotes)
+    notes_config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT, response_mime_type="application/json", response_schema=AgentNotes)
 
-    def generate(model_name: str, contents: list, config) -> types.GenerateContentResponse:
-        for attempt in range(3):
+    def generate(model_name: str, contents: list, config):
+        for attempt in range(2):
             try:
                 return client.models.generate_content(model=model_name, contents=contents, config=config)
             except errors.APIError as exc:
-                if exc.code in (429, 500, 503) and attempt < 2:
-                    time.sleep(4 * (attempt + 1))  # free-tier limits reset quickly
+                retry = re.search(r"retry in ([\d.]+)s", str(exc))
+                if exc.code == 429 and attempt == 0 and retry and float(retry.group(1)) <= 15:
+                    time.sleep(float(retry.group(1)) + 0.5)  # short free-tier wait, same model
                     continue
                 raise
         raise AssertionError("unreachable")
@@ -366,10 +372,11 @@ def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
     last_error: Exception | None = None
     for model_name in GEMINI_MODELS:
         contents: list = [types.Content(role="user", parts=[types.Part(text=(
-            f"Assess wound {wound_id}. Call get_sensor_history, predict_infection and "
-            "plan_treatment in that order; you can request all three at once."))])]
+            f"Assess wound {wound_id}. Request get_sensor_history, predict_infection and "
+            "plan_treatment together in this one turn, in that order."))])]
         try:
-            for _ in range(5):  # tool turns
+            done: set[str] = set()
+            for _ in range(4):  # tool turns
                 resp = generate(model_name, contents, tool_config)
                 calls = resp.function_calls or []
                 if not calls:
@@ -377,15 +384,17 @@ def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
                 contents.append(resp.candidates[0].content)
                 parts = []
                 for call in calls:
+                    args = dict(call.args or {})
                     if verbose:
-                        print(f"[agent] -> {call.name}({dict(call.args or {})})")
+                        print(f"[agent:{model_name}] -> {call.name}({args})")
                     try:
-                        out = {"result": json.loads(by_name[call.name](**dict(call.args or {})))}
+                        out = {"result": json.loads(by_name[call.name](**args))}
+                        done.add(call.name)
                     except Exception as exc:  # let the model see the error and retry
                         out = {"error": str(exc)}
                     parts.append(types.Part.from_function_response(name=call.name, response=out))
                 contents.append(types.Content(role="user", parts=parts))
-                if _tools_done(contents):
+                if "plan_treatment" in done:
                     break
             contents.append(types.Content(role="user", parts=[types.Part(text=(
                 "Now write your assessment from the tool results."))]))
@@ -394,21 +403,13 @@ def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
                 return reply.parsed
             return AgentNotes.model_validate_json(reply.text or "")
         except errors.APIError as exc:
-            if exc.code in (429, 500, 503):  # this model is busy: try the next free one
+            if exc.code in (429, 500, 503):  # busy or out of quota: try the next free model
                 last_error = exc
+                if verbose:
+                    print(f"[agent] {model_name} unavailable ({exc.code}), trying next model")
                 continue
             raise
-    raise RuntimeError(f"All Gemini models busy or rate-limited: {last_error}")
-
-
-def _tools_done(contents: list) -> bool:
-    """True once plan_treatment has returned a result (the last tool in the chain)."""
-    for c in contents:
-        for part in c.parts or []:
-            fr = part.function_response
-            if fr and fr.name == "plan_treatment" and "result" in (fr.response or {}):
-                return True
-    return False
+    raise RuntimeError(f"All Gemini models busy or rate-limited: {str(last_error)[:200]}")
 
 
 def _run_claude(wound_id: str, tools: list, client: anthropic.Anthropic, verbose: bool) -> AgentNotes:

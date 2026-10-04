@@ -15,11 +15,12 @@ python demo_ui/server.py --offline  # never call Claude
 - **Advance time**: each reading is streamed into the patch history over 30 min to 24 h
   (the model scores trends, so time has to pass). The first 24 h are a healthy baseline.
 - **Agent**: `wound_agent.run_assessment` (an LLM with the model and dosing as tools)
-  writes the assessment. With `OPENROUTER_API_KEY` in `.env` it uses Gemini 3.8 Flash
-  through OpenRouter (~13 s, ~$0.005 per assessment). `GEMINI_API_KEY` uses Google
-  directly (free tier, ~5 requests/min) and `ANTHROPIC_API_KEY` uses Claude Opus;
-  `AGENT_PROVIDER=openrouter|gemini|claude` picks one when several are set. Without a key, the same model and
-  dosing run and a rule-based summary stands in. Click the header chip to switch.
+  writes the assessment. With `GEMINI_API_KEY` in `.env` it uses Gemini Flash from Google
+  (free tier is fine: ~2 requests and ~10 s per assessment, about one assessment every
+  20 s before the free per-minute limit; it falls back across free Flash models).
+  `OPENROUTER_API_KEY` uses Gemini through OpenRouter (paid, no per-minute cap) and
+  `ANTHROPIC_API_KEY` uses Claude Opus; `AGENT_PROVIDER=gemini|openrouter|claude` picks one.
+  Without a key, the same model and dosing run and a rule-based summary stands in.
 - **App**: `GET /api/state` returns the latest risk, tier, therapy plan and agent notes for
   the Expo app to poll.
 - **Reset** (header button) starts a new patient.
