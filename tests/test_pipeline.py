@@ -74,7 +74,7 @@ def test_summary_reports_baseline_and_lifted_patch():
     assert len(s["last_6h_readings"]) == 12
 
 
-@pytest.mark.parametrize("risk,tier", [(10, 0), (25, 1), (29.9, 1)])
+@pytest.mark.parametrize("risk,tier", [(10, 0), (25, 1), (29.9, 1), (35, 1), (50, 1)])
 def test_sessions_without_led_get_healing_ultrasound(risk, tier):
     from risk_to_dose import session_plan
 
@@ -82,7 +82,7 @@ def test_sessions_without_led_get_healing_ultrasound(risk, tier):
     assert plan["led_405nm_min"] == 0 and plan["us_1p5mhz_min"] > 0
 
 
-@pytest.mark.parametrize("risk,tier", [(35, 1), (60, 2), (95, 3)])
+@pytest.mark.parametrize("risk,tier", [(55, 2), (60, 2), (95, 3)])
 def test_led_sessions_skip_healing_ultrasound(risk, tier):
     from risk_to_dose import session_plan
 
