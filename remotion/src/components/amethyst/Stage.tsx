@@ -51,8 +51,9 @@ const LINE = 8;
 
 // Proportions follow a real hand: fingers about as long as the palm, tapering
 // to the tip, two joint creases each, nails, a slight natural fan.
+// Runs well past the frame so its end never shows, even mid-entrance.
 const forearm =
-  "M 0,-104 C 300,-112 800,-142 1700,-164 L 1700,168 C 800,150 300,116 0,104 Z";
+  "M 0,-104 C 300,-112 800,-142 1700,-164 L 3000,-187 L 3000,191 L 1700,168 C 800,150 300,116 0,104 Z";
 const palm =
   "M 10,-104 C -30,-110 -70,-118 -110,-114 C -150,-110 -185,-110 -204,-104 C -236,-84 -246,-40 -248,0 C -246,40 -236,76 -206,98 C -170,110 -110,118 -60,112 C -30,108 -8,105 10,104 Z";
 

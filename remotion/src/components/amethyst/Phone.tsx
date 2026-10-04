@@ -3,13 +3,13 @@ import { color, inter } from "../../brand/theme";
 import { focusState, remainingAt } from "./appPose";
 import { Device, ScreenOverlay, Shot, type View } from "./Device";
 import { alertUI, screens, SCREEN, therapyShot } from "./screens";
-import { mix, move, T } from "./time";
+import { fr, mix, move, T } from "./time";
 
 // The phone in 03 Alert / 04 Treat: the real alert screen, the app's own
 // pressed state on the tap, then the real therapy screen opening out of the
 // button, counting down second by second (one real capture per second).
 
-const PRESS_FRAMES = 12;
+const PRESS_FRAMES = Math.round(fr(12));
 
 export const Phone: React.FC<{ f: number; view: View; showFocus?: boolean }> = ({ f, view, showFocus = true }) => {
   const r = move(f, "therapyReveal");

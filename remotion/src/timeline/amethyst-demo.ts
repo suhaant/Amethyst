@@ -1,14 +1,17 @@
 // AmethystDemo: the only place timing lives. Picture (src/scenes) and sound
 // (bed + SFX, scripts/studio.mjs) both read this file.
 //
-// 30 s explainer, 1920x1080 @ 60 fps, built to be talked over:
+// 40 s explainer, 1920x1080 @ 60 fps, built to be talked over:
 // 01 Sense -> 02 Reason (the AI agent) -> 03 Alert (app) -> 04 Treat -> logo.
-// Grid: 120 bpm, one beat = 30 frames. frame = 30 * beat.
+// Grid: 90 bpm, one beat = 40 frames. frame = 40 * beat. (Authored at 120
+// bpm / 30 s; the tempo alone stretches it, so every move gets more frames.)
+// Section times in the comments below are at the authored 120 bpm; multiply
+// by 4/3 for the real clock.
 import type { Timeline } from "../studio/beats";
 
 export const timeline: Timeline = {
   id: "AmethystDemo",
-  bpm: 120,
+  bpm: 90,
   fps: 60,
   beatsPerBar: 4,
   durationBeats: 60,
@@ -16,7 +19,9 @@ export const timeline: Timeline = {
   cues: {
     // ── Hook · apply the patch (0:00–0:04) ──
     scene1: { at: 0, beats: 8 },
-    armIn: { at: -0.4, beats: 1.4 },
+    // The arm sweeps in from the left right after the intro's logo leaves to
+    // the right (the film cuts here), so the whole entrance is on screen.
+    armIn: { at: -0.1, beats: 1.3 },
     patchFloat: { at: 1, beats: 1.5 },
     patchPress: { at: 3, beats: 1 }, // contact on beat 4
     squash: { at: 4, beats: 1 },

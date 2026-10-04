@@ -1,7 +1,7 @@
 import { Easing, interpolate } from "remotion";
 import { type View, toCanvas } from "./Device";
 import { type Rect, focus, SCREEN, THERAPY } from "./screens";
-import { mix, mixPt, move, T } from "./time";
+import { fr, mix, mixPt, move, T } from "./time";
 
 // The phone holds still on the right while the explanation runs on the left.
 // Focus moves with a dimming mask that glides between real UI regions, so
@@ -58,10 +58,10 @@ export const focusState = (f: number): { rect: Rect; dim: number } => {
   for (const [cue, r] of STOPS) {
     rect = mixRect(rect, r, move(f, cue));
   }
-  const releaseAt = T.start("ringToPatch") - 15;
+  const releaseAt = T.start("ringToPatch") - fr(15);
   const dim =
     move(f, "focusStatus") * (1 - move(f, "press")) +
-    move(f, "focusTimer") * (1 - drift(f, releaseAt, releaseAt + 15));
+    move(f, "focusTimer") * (1 - drift(f, releaseAt, releaseAt + fr(15)));
   return { rect: dim > 0.001 ? rect : FULL, dim };
 };
 

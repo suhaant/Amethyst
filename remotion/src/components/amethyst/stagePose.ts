@@ -9,7 +9,7 @@ import {
   worldToCanvas,
 } from "./Stage";
 import { CANVAS } from "./canvas";
-import { easeInOut, FPS, mix, mixPt, move, T } from "./time";
+import { easeInOut, END, FPS, fr, mix, mixPt, move, T } from "./time";
 
 // Pure pose of the physical world (arm, patch, camera) for any frame.
 
@@ -80,14 +80,18 @@ export const camera = (f: number): Camera => {
   const end = macroCam(MACRO_SCALE * 1.04);
   const pulled = mixCam(end, heroCam, move(f, "heroIn"));
   // Almost imperceptible push while the end card settles.
-  return { ...pulled, scale: pulled.scale * (1 + 0.01 * smooth(f, T.end("heroIn"), 1800)) };
+  return { ...pulled, scale: pulled.scale * (1 + 0.01 * smooth(f, T.end("heroIn"), END)) };
 };
+
+/** Where the arm starts: off the left edge and just below the frame, so the
+ *  hand sweeps in from the left (following the intro's logo, which leaves to
+ *  the right) while the forearm, which runs off the lower right, rises in
+ *  from under the bottom edge instead of popping in across the frame. */
+const ARM_FROM: Pt = [-1300, 580];
 
 export const armOffset = (f: number): [number, number] => {
   const t = move(f, "armIn");
-  const a = (ARM.angle * Math.PI) / 180;
-  const d = 1700 * (1 - t);
-  return [Math.cos(a) * d, Math.sin(a) * d];
+  return [ARM_FROM[0] * (1 - t), ARM_FROM[1] * (1 - t)];
 };
 
 const FLOAT_FROM: Pt = [-280, 360];
@@ -104,7 +108,7 @@ export const treatmentGlow = (f: number): number => {
   const t = (since % bar) / FPS;
   const swell = t < 0.35 ? Math.sin((Math.PI / 2) * (t / 0.35)) ** 2 : Math.exp(-(t - 0.35) / 0.5);
   // A floor fades in with the first breath so it never drops to dark.
-  const floor = 0.18 * Math.min(1, since / 24);
+  const floor = 0.18 * Math.min(1, since / fr(24));
   return Math.min(1, floor + 0.82 * swell);
 };
 
@@ -116,10 +120,12 @@ export const patchState = (f: number): PatchState => {
   const rot = mix(mix(-24, REST_ROT + 4, u), REST_ROT, v);
   const scale = mix(mix(1.3, 1.1, u), 1, v);
 
-  // Compression: 4 frames in, then it lands back softly as the edges settle.
+  // Compression: 4 (authored) frames in, then it lands back softly as the
+  // edges settle.
   const c0 = T.start("squash");
+  const cIn = fr(4);
   const squash =
-    f < c0 ? 0 : f < c0 + 4 ? Easing.out(Easing.quad)((f - c0) / 4) : 1 - land(f, FPS, c0 + 4, 20);
+    f < c0 ? 0 : f < c0 + cIn ? Easing.out(Easing.quad)((f - c0) / cIn) : 1 - land(f, FPS, c0 + cIn, fr(20));
 
   const inScene2 = f >= T.cut("scene2") && f < T.cut("scene3");
   const scanT = interpolate(f, [T.start("scan"), T.end("scan")], [0, 1], {

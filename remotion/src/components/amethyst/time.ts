@@ -5,11 +5,21 @@ import {
   cueEnd,
   cueLength,
   cueStart,
+  durationInFrames,
+  framesPerBeat,
 } from "../../studio/beats";
 import { land } from "../../studio/motion";
 import { timeline } from "../../timeline/amethyst-demo";
 
 export const FPS = timeline.fps;
+export const END = durationInFrames(timeline);
+
+/** Small offsets and move lengths were authored at 30 frames per beat. fr()
+ *  keeps them in proportion to the tempo, so a slower timeline slows every
+ *  move by the same amount (more frames, same motion). */
+const PER_BEAT_AUTHORED = 30;
+export const fr = (frames: number): number =>
+  (frames * framesPerBeat(timeline)) / PER_BEAT_AUTHORED;
 
 /** Frame helpers bound to the AmethystDemo timeline. */
 export const T = {

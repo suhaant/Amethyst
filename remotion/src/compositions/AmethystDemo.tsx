@@ -13,7 +13,7 @@ import { durationInFrames } from "../studio/beats";
 import { TimelineSfx } from "../studio/Sfx";
 import { timeline } from "../timeline/amethyst-demo";
 
-// Amethyst · 30s landscape explainer (1920x1080, for the slideshow), built
+// Amethyst · 40s landscape explainer (1920x1080, for the slideshow), built
 // to be talked over: 01 Sense -> 02 Reason (AI agent) -> 03 Alert -> 04 Treat. All timing: src/timeline/amethyst-demo.ts.
 
 export type AmethystDemoProps = {

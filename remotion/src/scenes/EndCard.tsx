@@ -8,7 +8,7 @@ import { RiseText } from "../components/amethyst/RiseText";
 import { therapyShot } from "../components/amethyst/screens";
 import { Stage } from "../components/amethyst/Stage";
 import { armOffset, camera, patchState, shadowState, stageTracked } from "../components/amethyst/stagePose";
-import { T } from "../components/amethyst/time";
+import { END, T, fr } from "../components/amethyst/time";
 import { MARGIN, text } from "../components/amethyst/ui";
 import { AdaptiveMotionBlur, speedFromPose } from "../studio/MotionBlur";
 
@@ -19,9 +19,9 @@ import { AdaptiveMotionBlur, speedFromPose } from "../studio/MotionBlur";
 // ~1.25s before the end; the camera keeps a near-still push.
 
 const FROM = T.cut("scene6");
-const TO = 1800;
-const FACET_GAP = 4;
-const FACET_IN = 8;
+const TO = END;
+const FACET_GAP = fr(4);
+const FACET_IN = fr(8);
 
 const Shot6: React.FC = () => {
   const f = useCurrentFrame() + FROM;
@@ -31,7 +31,7 @@ const Shot6: React.FC = () => {
       extrapolateRight: "clamp",
     }),
   );
-  const wordOpacity = interpolate(f, [T.start("wordmark"), T.start("wordmark") + 14], [0, 1], {
+  const wordOpacity = interpolate(f, [T.start("wordmark"), T.start("wordmark") + fr(14)], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });

@@ -4,7 +4,7 @@ import { color } from "../brand/theme";
 import { READING_W, readingCardPos } from "../components/amethyst/readingCard";
 import { Stage, worldToCanvas } from "../components/amethyst/Stage";
 import { PATCH_REST, armOffset, camera, patchState, shadowState, stageTracked } from "../components/amethyst/stagePose";
-import { T, move } from "../components/amethyst/time";
+import { FPS, T, fr, move } from "../components/amethyst/time";
 import { RowsCard, StepHeader } from "../components/amethyst/ui";
 import { readingRows } from "../data/assessment";
 import { AdaptiveMotionBlur, speedFromPose } from "../studio/MotionBlur";
@@ -24,7 +24,7 @@ const Shot: React.FC = () => {
   const cam = camera(f);
   const [cx, cy] = readingCardPos(f);
   const pod = worldToCanvas(cam, PATCH_REST);
-  const link = land(f, 60, T.start("readingCard") - 6, 24) * (1 - move(f, "patchOut"));
+  const link = land(f, FPS, T.start("readingCard") - fr(6), fr(24)) * (1 - move(f, "patchOut"));
   const linkEnd: [number, number] = [cx, cy + 200];
   return (
     <>

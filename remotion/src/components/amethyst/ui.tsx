@@ -2,7 +2,7 @@ import React from "react";
 import { color, inter, mono } from "../../brand/theme";
 import { land } from "../../studio/motion";
 import { RiseText } from "./RiseText";
-import { FPS } from "./time";
+import { FPS, fr } from "./time";
 
 // Type system for the explainer (one family, Inter; JetBrains Mono only for
 // readings and tool names, as the brand guide specifies).
@@ -32,7 +32,7 @@ export const StepHeader: React.FC<{
   <div style={{ position: "absolute", left: MARGIN, top: HEADER_TOP, width }}>
     <RiseText frame={frame} lines={[`${step} · ${name}`]} start={start} duration={duration} out={out} style={text.eyebrow} />
     <div style={{ height: 14 }} />
-    <RiseText frame={frame} lines={lines} start={start + 3} duration={duration} stagger={3} out={out} style={text.headline} />
+    <RiseText frame={frame} lines={lines} start={start + fr(3)} duration={duration} stagger={fr(3)} out={out} style={text.headline} />
   </div>
 );
 
@@ -56,7 +56,7 @@ export const RowsCard: React.FC<{
   accentRow?: number;
   /** 0..1: rolls the card up to its first row (used before a handoff). */
   collapse?: number;
-}> = ({ frame, title, rows, start, stagger = 4, x, y, w, open, footer, accentRow, collapse = 0 }) => {
+}> = ({ frame, title, rows, start, stagger = fr(4), x, y, w, open, footer, accentRow, collapse = 0 }) => {
   const rowH = ROW_H;
   const full = 86 + rows.length * rowH + (footer ? 40 + footer.lines.length * 28 : 12);
   const h = full + (COMPACT_H - full) * collapse;
@@ -76,11 +76,14 @@ export const RowsCard: React.FC<{
         boxSizing: "border-box",
       }}
     >
-      <RiseText frame={frame} lines={[title]} start={start} duration={30} style={{ ...text.label, color: color.ink, fontWeight: 600 }} />
+      <RiseText frame={frame} lines={[title]} start={start} duration={fr(30)} style={{ ...text.label, color: color.ink, fontWeight: 600 }} />
       <div style={{ height: 14 }} />
       {rows.map((row, i) => {
-        const at = row.at ?? start + 6 + i * stagger;
-        const p = land(frame, FPS, at, 30);
+        const at = row.at ?? start + fr(6) + i * stagger;
+        const p = land(frame, FPS, at, fr(30));
+        // Rise a full row height so no part of the text peeks above the row
+        // line before its move starts (a % of the text's own height did).
+        const rise = { transform: `translateY(${(1 - p) * rowH}px)`, display: "inline-block", visibility: frame < at ? "hidden" : "visible" } as const;
         return (
           <div
             key={row.label}
@@ -93,23 +96,14 @@ export const RowsCard: React.FC<{
               overflow: "hidden",
             }}
           >
-            <span style={{ ...text.label, transform: `translateY(${(1 - p) * 110}%)`, display: "inline-block" }}>{row.label}</span>
-            <span
-              style={{
-                ...text.value,
-                color: i === accentRow ? color.brand : color.ink,
-                transform: `translateY(${(1 - p) * 110}%)`,
-                display: "inline-block",
-              }}
-            >
-              {row.value}
-            </span>
+            <span style={{ ...text.label, ...rise }}>{row.label}</span>
+            <span style={{ ...text.value, color: i === accentRow ? color.brand : color.ink, ...rise }}>{row.value}</span>
           </div>
         );
       })}
       {footer ? (
         <div style={{ marginTop: 18 }}>
-          <RiseText frame={frame} lines={footer.lines} start={footer.at} duration={30} style={{ ...text.label, fontSize: 20, lineHeight: "28px" }} />
+          <RiseText frame={frame} lines={footer.lines} start={footer.at} duration={fr(30)} style={{ ...text.label, fontSize: 20, lineHeight: "28px" }} />
         </div>
       ) : null}
     </div>
@@ -129,9 +123,9 @@ export const Captions: React.FC<{
           frame={frame}
           lines={it.lines}
           start={it.start}
-          duration={36}
-          stagger={3}
-          out={it.end === undefined ? 0 : land(frame, FPS, it.end, 24)}
+          duration={fr(36)}
+          stagger={fr(3)}
+          out={it.end === undefined ? 0 : land(frame, FPS, it.end, fr(24))}
           style={{ ...text.body, fontSize: 38, color: color.ink }}
         />
       </div>

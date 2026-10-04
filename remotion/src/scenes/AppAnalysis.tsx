@@ -5,7 +5,7 @@ import { phoneView, viewTracked } from "../components/amethyst/appPose";
 import { toCanvas } from "../components/amethyst/Device";
 import { Phone } from "../components/amethyst/Phone";
 import { alertUI } from "../components/amethyst/screens";
-import { T, mix, move } from "../components/amethyst/time";
+import { FPS, T, fr, mix, move } from "../components/amethyst/time";
 import { COMPACT_H, Captions, StepHeader, text } from "../components/amethyst/ui";
 import { prob } from "../data/assessment";
 import { AdaptiveMotionBlur, speedFromPose } from "../studio/MotionBlur";
@@ -48,13 +48,13 @@ const Shot: React.FC = () => {
         lines={["The app turns the assessment into", "an alert the patient can act on."]}
         start={T.start("alertHeader")}
         duration={T.len("alertHeader")}
-        out={land(f, 60, T.beat(44), 24)}
+        out={land(f, FPS, T.beat(44), fr(24))}
       />
       <Captions
         frame={f}
         items={[
-          { start: T.start("focusStatus"), end: T.start("focusScore") - 6, lines: ["Status: Warning.", "Infection risk is rising."] },
-          { start: T.start("focusScore"), end: T.start("focusButton") - 6, lines: ["Risk score 82 / 100, with all", "five signals the agent read."] },
+          { start: T.start("focusStatus"), end: T.start("focusScore") - fr(6), lines: ["Status: Warning.", "Infection risk is rising."] },
+          { start: T.start("focusScore"), end: T.start("focusButton") - fr(6), lines: ["Risk score 82 / 100, with all", "five signals the agent read."] },
           { start: T.start("focusButton"), end: T.beat(44), lines: ["An early warning, not a diagnosis.", "One tap starts therapy."] },
         ]}
       />

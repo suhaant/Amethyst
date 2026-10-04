@@ -3,7 +3,7 @@
   "bpm": 120,
   "fps": 60,
   "offsetFrames": 0,
-  "durationInFrames": 360,
+  "durationInFrames": 300,
   "beats": [
     {
       "beat": 0,
@@ -54,16 +54,6 @@
       "beat": 9,
       "frame": 270,
       "time": 4.5
-    },
-    {
-      "beat": 10,
-      "frame": 300,
-      "time": 5
-    },
-    {
-      "beat": 11,
-      "frame": 330,
-      "time": 5.5
     }
   ],
   "downbeats": [
@@ -106,11 +96,18 @@
       "time": 2.75
     },
     {
-      "name": "warm hit: title",
+      "name": "warm hit: logo lands",
       "sfx": "warm-hit.wav",
       "beat": 6.75,
       "frame": 203,
       "time": 3.3833333333333333
+    },
+    {
+      "name": "whoosh: logo out",
+      "sfx": "whoosh.wav",
+      "beat": 8.75,
+      "frame": 263,
+      "time": 4.383333333333334
     }
   ]
 }

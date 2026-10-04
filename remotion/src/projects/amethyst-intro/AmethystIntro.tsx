@@ -4,12 +4,14 @@ import { facets } from "../../brand/Logo";
 import { color, inter } from "../../brand/theme";
 import { cueEnd, cueLength, cueStart, durationInFrames } from "../../studio/beats";
 import { land, pushIn, stagger } from "../../studio/motion";
+import { AdaptiveMotionBlur, speedFromPose } from "../../studio/MotionBlur";
 import { TimelineSfx } from "../../studio/Sfx";
 import { timeline as tl } from "./timeline";
 
 // Amethyst title intro (1920x1080 @ 60). Arc borrowed from the Quest intro:
 // product orbits in 3D -> dive into its light -> violet whiteout -> logo slam
-// with shake and burst -> settles into the title card layout.
+// with shake and burst -> settles into the centred logo (wordmark + crystal,
+// nothing else) -> holds -> slides out to the right into the demo.
 
 const { fps } = tl;
 const W = 1920;
@@ -18,19 +20,19 @@ const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
 // Patch photo (public/intro/patch.png, cropped from the title card).
 const PATCH = { w: 862, h: 1070, ring: [383, 624] as const, ringR: 28 };
-const PATCH_FINAL = { x: 1060, y: 8 };
 
 // Crystal: viewBox of the mark, its centre, and the two poses it holds.
 const VB = { x: 6, y: 3, w: 53, h: 57 };
 const GEM_C = [VB.x + VB.w / 2, VB.y + VB.h / 2] as const;
 const GEM_HERO = { cx: W / 2, cy: H / 2, h: 380 };
-const GEM_FINAL = { cx: 1075, cy: 327, h: 245 };
-
-// Title card layout (matches the slide).
-const WORD = { x: 104, top: 232, size: 192 };
-const TAG = { x: 110, top: 462, size: 40 };
-const NAMES = { x: 110, top: 838, size: 38 };
-const TEAM = ["Suhaan", "Aarush", "Anay", "Adam"];
+// The lockup (wordmark + crystal) sits centred on the frame. Measured from a
+// render: the ink spans x 98..1196, y 202..444 in the slide layout, so it
+// moves right 313 and down 217 from there.
+const CENTRE = { dx: 313, dy: 217 };
+const GEM_FINAL = { cx: 1075 + CENTRE.dx, cy: 327 + CENTRE.dy, h: 245 };
+const WORD = { x: 104 + CENTRE.dx, top: 232 + CENTRE.dy, size: 192 };
+/** How far the lockup travels to clear the right edge on its way out. */
+const EXIT_DX = W - WORD.x + 80;
 
 const T = {
   patchIn: cueStart(tl, "patchIn"),
@@ -38,9 +40,8 @@ const T = {
   dive: cueStart(tl, "dive"),
   slam: cueStart(tl, "slam"),
   lockup: cueStart(tl, "lockup"),
-  patchBack: cueStart(tl, "patchBack"),
-  tagline: cueStart(tl, "tagline"),
-  names: cueStart(tl, "names"),
+  logoOut: cueStart(tl, "logoOut"),
+  logoGone: cueEnd(tl, "logoOut"),
 };
 const END = durationInFrames(tl);
 
@@ -252,70 +253,28 @@ const RiseLetters: React.FC<{ f: number; text: string; start: number; style: Rea
   </div>
 );
 
-const RiseLine: React.FC<{ f: number; start: number; children: React.ReactNode; style?: React.CSSProperties }> = ({ f, start, children, style }) => {
-  const t = land(f, fps, start, 30);
-  return (
-    <div style={{ overflow: "hidden", paddingBottom: "0.15em", marginBottom: "-0.15em" }}>
-      <div style={{ transform: `translateY(${(1 - t) * 110}%)`, ...style }}>{children}</div>
-    </div>
-  );
-};
+const Wordmark: React.FC<{ f: number }> = ({ f }) => (
+  <RiseLetters
+    f={f}
+    text="amethyst"
+    start={T.lockup + 6}
+    style={{
+      position: "absolute",
+      left: WORD.x,
+      top: WORD.top,
+      fontFamily: inter,
+      fontWeight: 600,
+      fontSize: WORD.size,
+      lineHeight: 1,
+      letterSpacing: "-0.02em",
+      color: color.ink,
+    }}
+  />
+);
 
-const TitleCard: React.FC<{ f: number }> = ({ f }) => {
-  const P = land(f, fps, T.patchBack, cueLength(tl, "patchBack"));
-  return (
-    <>
-      {/* Patch photo returns on the right, like the slide. */}
-      {f >= T.patchBack - 1 ? (
-        <Img
-          src={staticFile("intro/patch.png")}
-          style={{
-            position: "absolute",
-            left: PATCH_FINAL.x + (1 - P) * 380,
-            top: PATCH_FINAL.y,
-            width: PATCH.w,
-            height: PATCH.h,
-            opacity: interpolate(P, [0, 0.5], [0, 1], clamp),
-            maskImage: "linear-gradient(90deg, transparent 0%, #000 18%)",
-            WebkitMaskImage: "linear-gradient(90deg, transparent 0%, #000 18%)",
-          }}
-        />
-      ) : null}
-      <RiseLetters
-        f={f}
-        text="amethyst"
-        start={T.lockup + 6}
-        style={{
-          position: "absolute",
-          left: WORD.x,
-          top: WORD.top,
-          fontFamily: inter,
-          fontWeight: 600,
-          fontSize: WORD.size,
-          lineHeight: 1,
-          letterSpacing: "-0.02em",
-          color: color.ink,
-        }}
-      />
-      <div style={{ position: "absolute", left: TAG.x, top: TAG.top, fontFamily: inter, fontWeight: 500, fontSize: TAG.size, lineHeight: "48px", color: color.ink, letterSpacing: "-0.005em" }}>
-        <RiseLine f={f} start={T.tagline}>Smart wound care that catches infection</RiseLine>
-        <RiseLine f={f} start={T.tagline + 4}>early and treats it on the spot.</RiseLine>
-      </div>
-      <div style={{ position: "absolute", left: NAMES.x, top: NAMES.top, display: "flex", gap: 20, fontFamily: inter, fontWeight: 500, fontSize: NAMES.size, color: color.brandDeep }}>
-        {TEAM.map((name, i) => (
-          <React.Fragment key={name}>
-            {i > 0 ? (
-              <RiseLine f={f} start={stagger(T.names, i * 2 - 1, 3)} style={{ color: color.brand }}>
-                ·
-              </RiseLine>
-            ) : null}
-            <RiseLine f={f} start={stagger(T.names, i * 2, 3)}>{name}</RiseLine>
-          </React.Fragment>
-        ))}
-      </div>
-    </>
-  );
-};
+/** Lockup exit: starts slow, leaves fast (it is gone when the demo cuts in). */
+const exitX = (f: number) =>
+  interpolate(f, [T.logoOut, T.logoGone], [0, EXIT_DX], { ...clamp, easing: Easing.bezier(0.5, 0, 0.9, 0.4) });
 
 export const AmethystIntro: React.FC = () => {
   const f = useCurrentFrame();
@@ -326,15 +285,17 @@ export const AmethystIntro: React.FC = () => {
       ? interpolate(f, [T.dive + 12, T.slam], [0, 1], { ...clamp, easing: Easing.in(Easing.quad) })
       : interpolate(f, [T.slam, T.slam + 16], [1, 0], { ...clamp, easing: Easing.out(Easing.quad) });
   const flash = interpolate(f, [T.slam - 3, T.slam, T.slam + 10], [0, 0.9, 0], clamp);
-  const camera = f >= T.lockup ? pushIn(f - T.lockup, END - T.lockup, 0.025) : 1;
+  const camera = f >= T.lockup ? pushIn(f - T.lockup, T.logoOut - T.lockup, 0.025) : 1;
 
   return (
     <AbsoluteFill style={{ backgroundColor: color.surface, overflow: "hidden" }}>
       {f < T.slam + 2 ? <PatchShot f={f} /> : null}
-      <AbsoluteFill style={{ transform: `scale(${camera})`, transformOrigin: "35% 45%" }}>
-        {f >= T.slam - 2 ? <TitleCard f={f} /> : null}
-        {f >= T.slam - 2 ? <Gem f={f} /> : null}
-      </AbsoluteFill>
+      <AdaptiveMotionBlur name="Logo out" speed={speedFromPose((t) => [[exitX(t), 0]])}>
+        <AbsoluteFill style={{ transform: `translateX(${exitX(f)}px) scale(${camera})`, transformOrigin: "50% 50%" }}>
+          {f >= T.slam - 2 ? <Wordmark f={f} /> : null}
+          {f >= T.slam - 2 ? <Gem f={f} /> : null}
+        </AbsoluteFill>
+      </AdaptiveMotionBlur>
       <Burst f={f} />
       <AbsoluteFill
         style={{

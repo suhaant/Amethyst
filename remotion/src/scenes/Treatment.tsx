@@ -7,7 +7,7 @@ import { Phone } from "../components/amethyst/Phone";
 import { therapyProgress, therapyUI } from "../components/amethyst/screens";
 import { POD, Stage, worldToCanvas } from "../components/amethyst/Stage";
 import { PATCH_REST, armOffset, camera, patchState, shadowState, stageTracked } from "../components/amethyst/stagePose";
-import { T, mix } from "../components/amethyst/time";
+import { FPS, T, fr, mix } from "../components/amethyst/time";
 import { Captions, StepHeader } from "../components/amethyst/ui";
 import { plan } from "../data/assessment";
 import { AdaptiveMotionBlur, speedFromPose } from "../studio/MotionBlur";
@@ -60,15 +60,15 @@ const Shot: React.FC = () => {
         lines={["Ultrasound breaks up biofilm. Violet", "light kills bacteria. No drugs."]}
         start={T.start("treatHeader")}
         duration={T.len("treatHeader")}
-        out={land(f, 60, T.beat(54.25), 24)}
+        out={land(f, FPS, T.beat(54.25), fr(24))}
       />
       <Captions
         frame={f}
         items={[
-          { start: T.start("focusTimer"), end: T.start("focusPlan") - 6, lines: ["405 nm violet light is running.", "The countdown is live in the app."] },
+          { start: T.start("focusTimer"), end: T.start("focusPlan") - fr(6), lines: ["405 nm violet light is running.", "The countdown is live in the app."] },
           {
             start: T.start("focusPlan"),
-            end: T.start("ringToPatch") - 12,
+            end: T.start("ringToPatch") - fr(12),
             lines: [
               `The agent's plan: ${plan.ultrasound_frequency_khz} kHz ultrasound`,
               `for ${plan.ultrasound_minutes} min, then ${plan.violet_light_minutes} min of violet light,`,

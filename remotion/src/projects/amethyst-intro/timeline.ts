@@ -3,7 +3,9 @@
 //
 // Same arc as the Quest intro: the product floats in 3D with its light lit,
 // the camera dives into the light, a violet whiteout flashes, the crystal
-// slams together from its facets, then settles into the title card.
+// slams together from its facets, then settles into the centred logo
+// (wordmark + crystal only), holds, and slides out to the right, where the
+// demo's arm takes over from the left (AmethystFilm).
 import type { Timeline } from "../../studio/beats";
 
 export const timeline: Timeline = {
@@ -11,7 +13,7 @@ export const timeline: Timeline = {
   bpm: 120,
   fps: 60,
   beatsPerBar: 4,
-  durationBeats: 12,
+  durationBeats: 10,
   cues: {
     // Patch is already drifting in on frame 0 and orbits toward camera.
     patchIn: { at: -0.25, beats: 2 },
@@ -23,15 +25,15 @@ export const timeline: Timeline = {
     slam: { at: 3.5, beats: 0.75 },
     // Crystal travels to its lockup spot; wordmark rises letter by letter.
     lockup: { at: 5.5, beats: 1.25 },
-    // Patch photo slides back in on the right.
-    patchBack: { at: 5.75, beats: 1.5 },
-    tagline: { at: 6.75, beats: 0.75 },
-    names: { at: 7.5, beats: 0.75 },
+    // The logo holds, then leaves to the right; the film cuts to the demo
+    // on the last frame of this move.
+    logoOut: { at: 8.75, beats: 1.25 },
   },
   hits: [
     { name: "whoosh: dive", sfx: "whoosh.wav", at: 2.75, volume: 0.8 },
     { name: "low hit: slam", sfx: "low-hit.wav", at: 3.5 },
     { name: "whoosh: lockup", sfx: "whoosh.wav", at: 5.5, volume: 0.5 },
-    { name: "warm hit: title", sfx: "warm-hit.wav", at: 6.75, volume: 0.6 },
+    { name: "warm hit: logo lands", sfx: "warm-hit.wav", at: 6.75, volume: 0.6 },
+    { name: "whoosh: logo out", sfx: "whoosh.wav", at: 8.75, volume: 0.35 },
   ],
 };
