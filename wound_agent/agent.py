@@ -1,8 +1,8 @@
 """LLM agent (Gemini or Claude) that assesses a wound's sensor history for infection.
 
 Provider, first key found wins (or force with AGENT_PROVIDER=openrouter|gemini|claude):
-  GEMINI_API_KEY      Gemini direct from Google (free tier works: ~2 requests per assessment,
-                      ~5 requests/min per model, falls back across free Flash models)
+  GEMINI_API_KEY      Gemini direct from Google: Gemini 3.1 Pro with high thinking, then a
+                      fact check of the notes against the tool results (GEMINI_MODEL overrides)
   OPENROUTER_API_KEY  Gemini through OpenRouter (OPENROUTER_MODEL, default google/gemini-3.8-flash)
   ANTHROPIC_API_KEY   Claude Opus
 
@@ -39,10 +39,9 @@ from .schemas import (
 
 MODEL = "claude-opus-5-5"
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemini-3.8-flash")
-# Free-tier Gemini models, tried in order when one is overloaded or rate-limited.
-# Each has its own per-minute quota, so falling back to the next one usually works.
-GEMINI_MODELS = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-3.5-flash", "gemini-3.5-flash-lite",
-                             "gemini-3.8-flash", "gemini-3.1-flash-lite"] if m]
+# Best model first; the others only if it's unavailable (overloaded, quota, outage).
+GEMINI_MODELS = [m for m in [os.environ.get("GEMINI_MODEL"), "gemini-3.1-pro-preview", "gemini-pro-latest",
+                             "gemini-3.8-flash"] if m]
 
 
 def provider() -> str | None:
@@ -342,74 +341,117 @@ def _run_openrouter(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
 
 
 def _run_gemini(wound_id: str, tools: list, verbose: bool) -> AgentNotes:
-    """Gemini direct from Google. The tool loop runs here (not the SDK's automatic
-    calling) so an assessment costs ~2 requests: the free tier allows ~5 per minute per
-    model. The model requests the tools (all three at once when it can), then one more
-    request returns the notes as JSON matching AgentNotes."""
+    """Gemini direct from Google: Gemini 3.1 Pro with high thinking calls the tools one
+    at a time (reasoning between them), writes the notes as JSON matching AgentNotes,
+    then the notes are fact-checked against the tool results and corrected once if needed."""
     from google import genai
     from google.genai import errors, types
 
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
     by_name = {t.__name__: t for t in tools}
+    level = os.environ.get("GEMINI_THINKING", "high").upper()  # low | medium | high
+    thinking = types.ThinkingConfig(thinking_level=getattr(types.ThinkingLevel, level, types.ThinkingLevel.HIGH))
     tool_config = types.GenerateContentConfig(
-        system_instruction=SYSTEM_PROMPT, tools=tools,
+        system_instruction=SYSTEM_PROMPT, tools=tools, thinking_config=thinking,
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True))
     notes_config = types.GenerateContentConfig(
-        system_instruction=SYSTEM_PROMPT, response_mime_type="application/json", response_schema=AgentNotes)
+        system_instruction=SYSTEM_PROMPT, thinking_config=thinking,
+        response_mime_type="application/json", response_schema=AgentNotes)
 
     def generate(model_name: str, contents: list, config):
-        for attempt in range(2):
+        for attempt in range(3):
             try:
                 return client.models.generate_content(model=model_name, contents=contents, config=config)
             except errors.APIError as exc:
-                retry = re.search(r"retry in ([\d.]+)s", str(exc))
-                if exc.code == 429 and attempt == 0 and retry and float(retry.group(1)) <= 15:
-                    time.sleep(float(retry.group(1)) + 0.5)  # short free-tier wait, same model
+                if exc.code in (429, 500, 503) and attempt < 2:
+                    time.sleep(2 * (attempt + 1))
                     continue
                 raise
         raise AssertionError("unreachable")
 
+    def parse(reply) -> AgentNotes:
+        if isinstance(reply.parsed, AgentNotes):
+            return reply.parsed
+        return AgentNotes.model_validate_json(reply.text or "")
+
     last_error: Exception | None = None
     for model_name in GEMINI_MODELS:
-        contents: list = [types.Content(role="user", parts=[types.Part(text=(
-            f"Assess wound {wound_id}. Request get_sensor_history, predict_infection and "
-            "plan_treatment together in this one turn, in that order."))])]
+        contents: list = [types.Content(role="user", parts=[types.Part(text=f"Assess wound {wound_id}.")])]
+        results: dict[str, dict] = {}
         try:
-            done: set[str] = set()
-            for _ in range(4):  # tool turns
+            for _ in range(8):  # tool turns
                 resp = generate(model_name, contents, tool_config)
                 calls = resp.function_calls or []
                 if not calls:
                     break
-                contents.append(resp.candidates[0].content)
+                contents.append(resp.candidates[0].content)  # keeps Gemini's thought signatures
                 parts = []
                 for call in calls:
                     args = dict(call.args or {})
                     if verbose:
                         print(f"[agent:{model_name}] -> {call.name}({args})")
                     try:
-                        out = {"result": json.loads(by_name[call.name](**args))}
-                        done.add(call.name)
+                        results[call.name] = json.loads(by_name[call.name](**args))
+                        out = {"result": results[call.name]}
                     except Exception as exc:  # let the model see the error and retry
                         out = {"error": str(exc)}
                     parts.append(types.Part.from_function_response(name=call.name, response=out))
                 contents.append(types.Content(role="user", parts=parts))
-                if "plan_treatment" in done:
-                    break
+            missing = [t for t in by_name if t not in results]
+            if missing:
+                raise RuntimeError(f"{model_name} stopped without calling {missing}")
+
             contents.append(types.Content(role="user", parts=[types.Part(text=(
                 "Now write your assessment from the tool results."))]))
-            reply = generate(model_name, contents, notes_config)
-            if isinstance(reply.parsed, AgentNotes):
-                return reply.parsed
-            return AgentNotes.model_validate_json(reply.text or "")
+            notes = parse(generate(model_name, contents, notes_config))
+
+            problems = check_notes(notes, results)
+            if problems:
+                if verbose:
+                    print(f"[agent] fact check found {len(problems)} issue(s), asking for a correction")
+                contents.append(types.Content(role="model", parts=[types.Part(text=notes.model_dump_json())]))
+                contents.append(types.Content(role="user", parts=[types.Part(text=(
+                    "A fact check of your assessment against the tool results found these problems:\n- "
+                    + "\n- ".join(problems) + "\nReturn the corrected assessment."))]))
+                notes = parse(generate(model_name, contents, notes_config))
+            return notes
         except errors.APIError as exc:
-            if exc.code in (429, 500, 503):  # busy or out of quota: try the next free model
+            if exc.code in (429, 500, 503):  # model unavailable: try the next one
                 last_error = exc
                 if verbose:
                     print(f"[agent] {model_name} unavailable ({exc.code}), trying next model")
                 continue
             raise
-    raise RuntimeError(f"All Gemini models busy or rate-limited: {str(last_error)[:200]}")
+    raise RuntimeError(f"All Gemini models unavailable: {str(last_error)[:200]}")
+
+
+TIER_WORDS = ["monitor", "watch", "treat", "intensive"]
+
+
+def check_notes(notes: AgentNotes, results: dict[str, dict]) -> list[str]:
+    """Rule checks that the agent's notes agree with what the tools returned."""
+    problems = []
+    pred, hist = results["predict_infection"], results["get_sensor_history"]
+    risk, tier = float(pred["risk_score"]), int(str(pred["tier"]).split()[0])
+    text = f"{notes.summary} {notes.reasoning} {notes.trend}"
+
+    numbers = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", notes.summary)]
+    if not any(abs(n - risk) <= 1.0 for n in numbers):
+        problems.append(f"The summary must state the model's risk score ({risk:.1f}/100).")
+    if TIER_WORDS[tier] not in text.lower():
+        problems.append(f"State the risk tier: {pred['tier']}.")
+
+    latest_z = hist["sensors"]["impedance_kohm"]["latest"]
+    if latest_z > LIFTED_KOHM:
+        if not any(w in " ".join(notes.data_quality_flags).lower() for w in ("lift", "off the skin", "detach")):
+            problems.append(f"Latest impedance is {latest_z} kΩ (> {LIFTED_KOHM}): flag that the patch is off the skin.")
+        if notes.confidence == "high":
+            problems.append("Readings are unreliable while the patch is lifted, so confidence can't be high.")
+    if tier >= 2 and not notes.recommend_clinician_review:
+        problems.append(f"Risk is in the {TIER_WORDS[tier]} tier, so recommend clinician review.")
+    if notes.data_quality_flags and not notes.recommend_clinician_review:
+        problems.append("There are data-quality flags, so recommend clinician review.")
+    return problems
 
 
 def _run_claude(wound_id: str, tools: list, client: anthropic.Anthropic, verbose: bool) -> AgentNotes:
