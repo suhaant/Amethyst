@@ -1,0 +1,21 @@
+** Drc report for pulsepatch.kicad_pcb **
+** Created on 2026-10-03T17:57:01 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 1 DRC violations **
+[lib_footprint_mismatch]: Footprint 'Raytac_MDBT42Q' does not match copy in library 'RF_Module'
+    Local override; warning
+    @(6.3000 mm, 8.5750 mm): Footprint U3
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **
