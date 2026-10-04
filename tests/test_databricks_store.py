@@ -265,6 +265,7 @@ def test_cli_rejects_bad_flag_combinations(argv):
 
 
 def test_cli_reports_missing_databricks_settings(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "load_dotenv", lambda *args, **kwargs: None)   # ignore the developer's own .env
     for name in ("DATABRICKS_HOST", "DATABRICKS_TOKEN", "DATABRICKS_WAREHOUSE_ID"):
         monkeypatch.delenv(name, raising=False)
     assert cli.main(["--databricks", "--offline"]) == 1
