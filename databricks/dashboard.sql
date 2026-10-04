@@ -25,6 +25,7 @@ SELECT
   data_quality_flags,
   CASE
     WHEN skipped_reason IS NOT NULL THEN CONCAT('skipped: ', skipped_reason)
+    WHEN us_40khz_min = 0 AND led_405nm_min = 0 THEN CONCAT('healing ultrasound ', us_1p5mhz_min, ' min')
     ELSE CONCAT('ultrasound ', us_40khz_min, ' min, light ', led_405nm_min, ' min (', led_dose_j_cm2, ' J/cm2)')
   END                             AS next_dose,
   assessed_by,

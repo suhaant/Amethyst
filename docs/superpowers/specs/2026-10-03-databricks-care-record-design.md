@@ -2,7 +2,7 @@
 
 Date: 2026-10-03
 Branch: built on `agent-reasoning`
-Status: implemented 2026-10-04; tested against a fake warehouse only, not yet run against a real workspace
+Status: implemented 2026-10-04 and run against a real workspace (live round trip, demo cohort, all four dashboard queries); the dashboard itself still has to be built in the UI
 
 ## Goal
 
